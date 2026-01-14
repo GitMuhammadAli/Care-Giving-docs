@@ -36,6 +36,18 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │    list was in Mom's email, his doctor's contact was in my phone,           │
 │    and the insurance card was at his house."                                │
 │                                                                             │
+│   ┌───────────────────────────────────────────────────────────────────────┐ │
+│   │  BEFORE CareCircle                 │  AFTER CareCircle               │ │
+│   ├───────────────────────────────────────────────────────────────────────┤ │
+│   │  "Sister didn't know for 6 hours"  │  Everyone notified in 2 minutes │ │
+│   │  "Medication list in Mom's email"  │  All meds in one place          │ │
+│   │  "Doctor's contact in my phone"    │  All contacts shared            │ │
+│   │  "Insurance card at his house"     │  Documents accessible anywhere  │ │
+│   │  "Shared Google Doc is chaos"      │  Organized, real-time app       │ │
+│   │  "Missed appointments"             │  Calendar with reminders        │ │
+│   │  "Double-booked caregivers"        │  Shift scheduling               │ │
+│   └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
 │   Common Pain Points:                                                       │
 │   • Family members in different states/time zones                           │
 │   • 5 doctors, 3 medications, weekly PT - no central tracking               │
@@ -81,11 +93,12 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 |-------|------------|-----|
 | **Frontend** | Next.js 14 (App Router) | Server components, great DX, PWA support |
 | **Backend** | NestJS | Enterprise-grade, TypeScript, modular |
-| **Database** | PostgreSQL | Relational data, ACID, JSON support |
+| **Database** | PostgreSQL + Prisma | Relational data, ACID, JSON support, type-safe ORM |
 | **Cache/Queue** | Redis + BullMQ | Fast cache, reliable job processing |
 | **Message Broker** | RabbitMQ | Event-driven architecture, decoupling |
 | **Real-time** | Socket.io | WebSocket support with fallbacks |
-| **Storage** | Cloudinary/S3 | Document vault, image storage |
+| **Storage** | Cloudinary | Document vault, image storage (third-party) |
+| **Email** | Mailtrap | Email testing in development (third-party) |
 | **Auth** | JWT + HTTP-only cookies | Secure, stateless auth |
 
 ---
@@ -221,24 +234,24 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   │   │   ├── src/                                                          │
 │   │   │   │   ├── auth/             # Authentication module                 │
 │   │   │   │   ├── user/             # User management                       │
-│   │   │   │   ├── care-recipients/  # Care recipient CRUD                   │
+│   │   │   │   ├── family/           # Family & invitations                  │
+│   │   │   │   ├── care-recipient/   # Care recipient CRUD                   │
 │   │   │   │   ├── medications/      # Medication tracking                   │
 │   │   │   │   ├── appointments/     # Calendar & appointments               │
 │   │   │   │   ├── documents/        # Document vault                        │
 │   │   │   │   ├── emergency/        # Emergency alerts                      │
 │   │   │   │   ├── timeline/         # Health timeline                       │
-│   │   │   │   ├── caregivers/       # Shift management                      │
-│   │   │   │   ├── families/         # Family & invites                      │
+│   │   │   │   ├── caregiver-shifts/ # Shift management                      │
 │   │   │   │   ├── notifications/    # Push notifications                    │
 │   │   │   │   ├── gateway/          # WebSocket gateway                     │
 │   │   │   │   ├── events/           # Event-driven architecture             │
 │   │   │   │   │   ├── publishers/   # Event publishers                      │
-│   │   │   │   │   ├── consumers/    # Event consumers                       │
-│   │   │   │   │   └── outbox/       # Outbox pattern                        │
+│   │   │   │   │   └── consumers/    # Event consumers                       │
 │   │   │   │   ├── database/         # TypeORM config & migrations           │
 │   │   │   │   ├── config/           # App configuration                     │
-│   │   │   │   └── system/           # Shared utilities                      │
-│   │   │   │       └── module/       # Mail, file upload, etc.               │
+│   │   │   │   ├── system/           # Shared utilities                      │
+│   │   │   │   │   └── module/       # Mail, storage, etc.                   │
+│   │   │   │   └── i18n/             # Internationalization                  │
 │   │   │   ├── package.json                                                  │
 │   │   │   └── nest-cli.json                                                 │
 │   │   │                                                                     │
@@ -250,9 +263,7 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   │   │   │   │   └── layout.tsx    # Root layout                           │
 │   │   │   │   ├── components/       # React components                      │
 │   │   │   │   │   ├── ui/           # Base UI (Button, Input, etc.)         │
-│   │   │   │   │   ├── care/         # Domain components                     │
-│   │   │   │   │   ├── forms/        # Form components                       │
-│   │   │   │   │   └── layout/       # Layout components                     │
+│   │   │   │   │   └── ...           # Feature components                    │
 │   │   │   │   ├── hooks/            # React hooks                           │
 │   │   │   │   ├── lib/              # Utils & API client                    │
 │   │   │   │   └── styles/           # Global CSS & Tailwind                 │
@@ -263,28 +274,43 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   │   │                                                                     │
 │   │   └── workers/                   # Background Workers                   │
 │   │       ├── src/                                                          │
-│   │       │   ├── processors/       # Job processors                        │
-│   │       │   │   ├── reminder.processor.ts                                 │
-│   │       │   │   └── email.processor.ts                                    │
-│   │       │   └── main.ts                                                   │
+│   │       │   ├── workers/          # Job workers                           │
+│   │       │   │   ├── medication-reminder.worker.ts                         │
+│   │       │   │   ├── appointment-reminder.worker.ts                        │
+│   │       │   │   └── shift-reminder.worker.ts                              │
+│   │       │   ├── scheduler.ts      # Cron job scheduler                    │
+│   │       │   └── index.ts          # Worker entry point                    │
 │   │       └── package.json                                                  │
 │   │                                                                         │
 │   ├── packages/                      # Shared Packages                      │
-│   │   └── shared/                                                           │
+│   │   └── database/                  # Prisma Database Package              │
+│   │       ├── prisma/                                                       │
+│   │       │   └── schema.prisma     # Database schema                       │
 │   │       ├── src/                                                          │
-│   │       │   ├── types/            # Shared TypeScript types               │
-│   │       │   ├── constants/        # Shared constants                      │
-│   │       │   └── utils/            # Shared utilities                      │
+│   │       │   └── index.ts          # Prisma client export                  │
 │   │       └── package.json                                                  │
+│   │                                                                         │
+│   ├── env/                           # Environment Configurations           │
+│   │   ├── base.env                  # Shared config (JWT, Cloudinary, etc.) │
+│   │   ├── local.env                 # Local Docker services                 │
+│   │   └── cloud.env                 # Cloud/production services             │
+│   │                                                                         │
+│   ├── scripts/                       # Utility Scripts                      │
+│   │   ├── use-local.ps1             # Switch to local profile               │
+│   │   ├── use-cloud.ps1             # Switch to cloud profile               │
+│   │   └── deploy-prod.ps1           # Production deployment                 │
 │   │                                                                         │
 │   ├── docs/                          # Documentation                        │
 │   │   ├── guides/                   # Learning guides (you are here!)       │
+│   │   ├── getting-started/          # Quick start guides                    │
 │   │   └── engineering-mastery/      # Production engineering docs           │
 │   │                                                                         │
+│   ├── k8s/                           # Kubernetes manifests                 │
 │   ├── docker-compose.yml             # Local development services           │
+│   ├── docker-compose.prod.yml        # Production deployment                │
 │   ├── pnpm-workspace.yaml            # pnpm workspace config                │
-│   ├── package.json                   # Root package.json                    │
-│   └── SETUP.md                       # Getting started guide                │
+│   ├── turbo.json                     # Turborepo config                     │
+│   └── package.json                   # Root package.json                    │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -296,22 +322,20 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │                      MONOREPO BENEFITS                                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   1. SHARED CODE                                                            │
+│   1. SHARED DATABASE SCHEMA                                                 │
 │   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ // packages/shared/src/types/medication.ts                          │   │
-│   │ export interface Medication {                                       │   │
-│   │   id: string;                                                       │   │
-│   │   name: string;                                                     │   │
-│   │   dosage: string;                                                   │   │
-│   │   frequency: string;                                                │   │
+│   │ // packages/database/prisma/schema.prisma                           │   │
+│   │ model Medication {                                                  │   │
+│   │   id              String @id @default(uuid())                       │   │
+│   │   careRecipientId String                                            │   │
+│   │   name            String                                            │   │
+│   │   dosage          String                                            │   │
+│   │   // ... full schema                                                │   │
 │   │ }                                                                   │   │
 │   │                                                                     │   │
-│   │ // Used in BOTH frontend and backend!                               │   │
-│   │ // apps/api/src/medications/medications.service.ts                  │   │
-│   │ import { Medication } from '@carecircle/shared';                    │   │
-│   │                                                                     │   │
-│   │ // apps/web/src/lib/api/medications.ts                              │   │
-│   │ import { Medication } from '@carecircle/shared';                    │   │
+│   │ // Used by BOTH API and Workers!                                    │   │
+│   │ // apps/api/src/... and apps/workers/src/...                        │   │
+│   │ import { PrismaClient } from '@carecircle/database';                │   │
 │   └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 │   2. ATOMIC CHANGES                                                         │
@@ -319,7 +343,7 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   │ One commit can update:                                              │   │
 │   │ • API endpoint                                                      │   │
 │   │ • Frontend component                                                │   │
-│   │ • Shared types                                                      │   │
+│   │ • Database schema                                                   │   │
 │   │ • Documentation                                                     │   │
 │   │                                                                     │   │
 │   │ No more "update API in PR #1, update frontend in PR #2"             │   │
@@ -333,11 +357,10 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   │ # Build ALL apps                                                    │   │
 │   │ $ pnpm build                                                        │   │
 │   │                                                                     │   │
-│   │ # Test ALL packages                                                 │   │
-│   │ $ pnpm test                                                         │   │
-│   │                                                                     │   │
 │   │ # Filter to specific app                                            │   │
 │   │ $ pnpm --filter @carecircle/api dev                                 │   │
+│   │ $ pnpm --filter @carecircle/web dev                                 │   │
+│   │ $ pnpm --filter @carecircle/workers dev                             │   │
 │   └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -351,7 +374,7 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                      DATABASE SCHEMA (Simplified)                            │
+│                      DATABASE SCHEMA (Prisma)                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │   ┌─────────────┐          ┌─────────────────┐          ┌──────────────┐   │
@@ -360,7 +383,7 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   │ id (PK)     │       │  │ userId (FK)     │          │ id (PK)      │   │
 │   │ email       │       │  │ familyId (FK)   │          │ name         │   │
 │   │ passwordHash│       │  │ role            │          │ createdAt    │   │
-│   │ fullName    │       │  │ addedAt         │          │ updatedAt    │   │
+│   │ fullName    │       │  │ joinedAt        │          │ updatedAt    │   │
 │   │ phone       │       │  └─────────────────┘          └──────┬───────┘   │
 │   │ emailVerified│      │                                      │           │
 │   └──────┬──────┘       │                                      │           │
@@ -371,12 +394,12 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   │─────────────│       │                              │──────────────│    │
 │   │ id (PK)     │       │                              │ id (PK)      │    │
 │   │ userId (FK) │       │                              │ familyId (FK)│    │
-│   │ tokenHash   │       │                              │ firstName    │    │
+│   │ refreshToken│       │                              │ firstName    │    │
 │   │ expiresAt   │       │                              │ lastName     │    │
-│   │ revokedAt   │       │                              │ dateOfBirth  │    │
-│   │ ipAddress   │       │                              │ bloodType    │    │
-│   │ userAgent   │       │                              │ allergies    │    │
-│   └─────────────┘       │                              │ conditions   │    │
+│   │ ipAddress   │       │                              │ dateOfBirth  │    │
+│   │ userAgent   │       │                              │ bloodType    │    │
+│   └─────────────┘       │                              │ allergies[]  │    │
+│                         │                              │ conditions[] │    │
 │                         │                              └──────┬───────┘    │
 │                         │                                     │            │
 │   ┌─────────────────────┼─────────────────────────────────────┤            │
@@ -386,37 +409,37 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │ │ Medication   │  │ Appointment  │  │TimelineEntry │  │   Document   │     │
 │ │──────────────│  │──────────────│  │──────────────│  │──────────────│     │
 │ │ id (PK)      │  │ id (PK)      │  │ id (PK)      │  │ id (PK)      │     │
-│ │ recipientId  │  │ recipientId  │  │ recipientId  │  │ recipientId  │     │
+│ │ recipientId  │  │ recipientId  │  │ recipientId  │  │ familyId     │     │
 │ │ name         │  │ title        │  │ type         │  │ type         │     │
-│ │ dosage       │  │ date         │  │ content      │  │ fileName     │     │
-│ │ frequency    │  │ location     │  │ authorId     │  │ fileUrl      │     │
-│ │ times[]      │  │ assignedTo   │  │ createdAt    │  │ uploadedById │     │
-│ │ instructions │  │ notes        │  │ vitals (JSON)│  │ category     │     │
+│ │ dosage       │  │ startTime    │  │ title        │  │ name         │     │
+│ │ frequency    │  │ endTime      │  │ description  │  │ s3Key        │     │
+│ │ scheduledTimes│ │ location     │  │ vitals (JSON)│  │ mimeType     │     │
+│ │ instructions │  │ status       │  │ severity     │  │ uploadedById │     │
 │ └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘     │
 │                                                                             │
 │ ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│ │MedicationLog │  │EmergencyAlert│  │ CareShift    │  │ FamilyInvite │     │
+│ │MedicationLog │  │EmergencyAlert│  │CaregiverShift│  │FamilyInvite  │     │
 │ │──────────────│  │──────────────│  │──────────────│  │──────────────│     │
 │ │ id (PK)      │  │ id (PK)      │  │ id (PK)      │  │ id (PK)      │     │
 │ │ medicationId │  │ recipientId  │  │ recipientId  │  │ familyId     │     │
 │ │ status       │  │ type         │  │ caregiverId  │  │ email        │     │
-│ │ scheduledTime│  │ triggeredBy  │  │ startTime    │  │ role         │     │
-│ │ loggedAt     │  │ resolvedAt   │  │ endTime      │  │ token        │     │
-│ │ loggedById   │  │ description  │  │ checkedInAt  │  │ expiresAt    │     │
-│ │ notes        │  │              │  │ checkedOutAt │  │ acceptedAt   │     │
+│ │ scheduledTime│  │ createdById  │  │ startTime    │  │ role         │     │
+│ │ givenTime    │  │ status       │  │ endTime      │  │ token        │     │
+│ │ givenById    │  │ resolvedAt   │  │ checkedInAt  │  │ expiresAt    │     │
+│ │ notes        │  │ description  │  │ checkedOutAt │  │ status       │     │
 │ └──────────────┘  └──────────────┘  │ notes        │  └──────────────┘     │
 │                                     └──────────────┘                       │
 │                                                                             │
-│ ┌──────────────┐  ┌──────────────┐                                         │
-│ │ EventOutbox  │  │PushSubscript.│                                         │
-│ │──────────────│  │──────────────│                                         │
-│ │ id (PK)      │  │ id (PK)      │                                         │
-│ │ eventType    │  │ userId       │                                         │
-│ │ payload      │  │ endpoint     │                                         │
-│ │ routingKey   │  │ keys         │                                         │
-│ │ processed    │  │ createdAt    │                                         │
-│ │ retries      │  │              │                                         │
-│ └──────────────┘  └──────────────┘                                         │
+│ ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                       │
+│ │   Doctor     │  │EmergencyContact│ │ Notification│                       │
+│ │──────────────│  │──────────────│  │──────────────│                       │
+│ │ id (PK)      │  │ id (PK)      │  │ id (PK)      │                       │
+│ │ recipientId  │  │ recipientId  │  │ userId       │                       │
+│ │ name         │  │ name         │  │ type         │                       │
+│ │ specialty    │  │ relationship │  │ title        │                       │
+│ │ phone        │  │ phone        │  │ body         │                       │
+│ │ email        │  │ isPrimary    │  │ read         │                       │
+│ └──────────────┘  └──────────────┘  └──────────────┘                       │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -577,43 +600,6 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### CloudEvents Format
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      CLOUDEVENTS FORMAT                                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   We follow the CloudEvents specification (v1.0) for all events:            │
-│                                                                             │
-│   {                                                                         │
-│     "specversion": "1.0",           // CloudEvents version                  │
-│     "id": "550e8400-e29b-41d4-...", // Unique event ID (UUID)               │
-│     "type": "medication.logged",     // Event type (dot notation)           │
-│     "source": "/api/v1/medications/123/log",  // Origin of event            │
-│     "time": "2024-01-15T10:30:00Z", // ISO 8601 timestamp                   │
-│     "datacontenttype": "application/json",                                  │
-│     "data": {                       // Actual payload                       │
-│       "medicationId": "med_abc123",                                         │
-│       "careRecipientId": "cr_xyz789",                                       │
-│       "familyId": "fam_123456",                                             │
-│       "status": "GIVEN",                                                    │
-│       "loggedById": "usr_sarah",                                            │
-│       "loggedByName": "Sarah Thompson",                                     │
-│       "medicationName": "Metformin 500mg",                                  │
-│       "scheduledTime": "2024-01-15T08:00:00Z"                               │
-│     }                                                                       │
-│   }                                                                         │
-│                                                                             │
-│   Why CloudEvents?                                                          │
-│   • Industry standard for event format                                      │
-│   • Self-describing (includes metadata)                                     │
-│   • Easy to route, filter, and process                                      │
-│   • Compatible with many tools and platforms                                │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
 ---
 
 ## 6. Real-Time Features
@@ -668,7 +654,7 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   │     // Update React Query cache when events arrive                  │   │
 │   │     socket.on('medication.logged', (data) => {                      │   │
 │   │       queryClient.invalidateQueries(['medications']);               │   │
-│   │       toast.info(`${data.loggedByName} logged ${data.medicationName}`);│ │
+│   │       toast.info(`${data.loggedByName} logged medication`);         │   │
 │   │     });                                                             │   │
 │   │                                                                     │   │
 │   │     socket.on('emergency.alert.created', (data) => {                │   │
@@ -700,7 +686,7 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   1. USER SUBSCRIBES (Frontend):                                            │
 │   ┌─────────────────────────────────────────────────────────────────────┐   │
 │   │ // Register service worker                                          │   │
-│   │ const registration = await navigator.serviceWorker.register('/sw.js');│  │
+│   │ const registration = await navigator.serviceWorker.register('/sw.js'); │
 │   │                                                                     │   │
 │   │ // Subscribe to push                                                │   │
 │   │ const subscription = await registration.pushManager.subscribe({     │   │
@@ -709,37 +695,16 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   │ });                                                                 │   │
 │   │                                                                     │   │
 │   │ // Send subscription to backend                                     │   │
-│   │ await api.post('/notifications/subscribe', subscription);           │   │
+│   │ await api.post('/notifications/push-subscription', subscription);   │   │
 │   └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 │   2. BACKEND STORES SUBSCRIPTION:                                           │
 │   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ // Stored in push_subscriptions table                               │   │
-│   │ { userId, endpoint, keys: { p256dh, auth }, createdAt }             │   │
+│   │ // Stored in PushToken table                                        │   │
+│   │ { userId, token, platform, createdAt }                              │   │
 │   └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
-│   3. NOTIFICATION CONSUMER SENDS PUSH:                                      │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ async sendPushNotificationToUser(userId: string, title: string, body: string) {│
-│   │   const subscriptions = await this.pushSubRepo.find({ where: { userId } });│
-│   │                                                                     │   │
-│   │   for (const sub of subscriptions) {                                │   │
-│   │     await webpush.sendNotification(                                 │   │
-│   │       sub,                                                          │   │
-│   │       JSON.stringify({ title, body, icon: '/icon.png' }),           │   │
-│   │       {                                                             │   │
-│   │         vapidDetails: {                                             │   │
-│   │           subject: 'mailto:noreply@carecircle.com',                 │   │
-│   │           publicKey: VAPID_PUBLIC_KEY,                              │   │
-│   │           privateKey: VAPID_PRIVATE_KEY,                            │   │
-│   │         },                                                          │   │
-│   │       }                                                             │   │
-│   │     );                                                              │   │
-│   │   }                                                                 │   │
-│   │ }                                                                   │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│   4. SERVICE WORKER RECEIVES PUSH:                                          │
+│   3. SERVICE WORKER RECEIVES PUSH:                                          │
 │   ┌─────────────────────────────────────────────────────────────────────┐   │
 │   │ // public/sw.js                                                     │   │
 │   │ self.addEventListener('push', (event) => {                          │   │
@@ -808,115 +773,6 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Fetching with React Query
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      REACT QUERY PATTERN                                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   1. API CLIENT (lib/api/client.ts):                                        │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ const api = axios.create({                                          │   │
-│   │   baseURL: process.env.NEXT_PUBLIC_API_URL,                         │   │
-│   │   withCredentials: true,  // Send cookies                           │   │
-│   │ });                                                                 │   │
-│   │                                                                     │   │
-│   │ // Auto-refresh on 401                                              │   │
-│   │ api.interceptors.response.use(                                      │   │
-│   │   (response) => response,                                           │   │
-│   │   async (error) => {                                                │   │
-│   │     if (error.response?.status === 401 && !error.config._retry) {   │   │
-│   │       error.config._retry = true;                                   │   │
-│   │       await api.post('/auth/refresh');                              │   │
-│   │       return api(error.config);                                     │   │
-│   │     }                                                               │   │
-│   │     throw error;                                                    │   │
-│   │   }                                                                 │   │
-│   │ );                                                                  │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│   2. DOMAIN API FUNCTIONS (lib/api/medications.ts):                         │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ export const medicationsApi = {                                     │   │
-│   │   getAll: (recipientId: string) =>                                  │   │
-│   │     api.get(`/care-recipients/${recipientId}/medications`)          │   │
-│   │       .then(r => r.data),                                           │   │
-│   │                                                                     │   │
-│   │   getSchedule: (recipientId: string, date: string) =>               │   │
-│   │     api.get(`/care-recipients/${recipientId}/medications/schedule`, {│  │
-│   │       params: { date }                                              │   │
-│   │     }).then(r => r.data),                                           │   │
-│   │                                                                     │   │
-│   │   logMedication: (medicationId: string, data: LogMedicationInput) =>│   │
-│   │     api.post(`/medications/${medicationId}/log`, data)              │   │
-│   │       .then(r => r.data),                                           │   │
-│   │ };                                                                  │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│   3. HOOKS (hooks/use-medications.ts):                                      │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ export function useMedicationSchedule(recipientId: string, date: string) {│
-│   │   return useQuery({                                                 │   │
-│   │     queryKey: ['medications', recipientId, 'schedule', date],       │   │
-│   │     queryFn: () => medicationsApi.getSchedule(recipientId, date),   │   │
-│   │     staleTime: 1000 * 60,  // 1 minute                              │   │
-│   │   });                                                               │   │
-│   │ }                                                                   │   │
-│   │                                                                     │   │
-│   │ export function useLogMedication() {                                │   │
-│   │   const queryClient = useQueryClient();                             │   │
-│   │                                                                     │   │
-│   │   return useMutation({                                              │   │
-│   │     mutationFn: medicationsApi.logMedication,                       │   │
-│   │     onMutate: async ({ medicationId, status }) => {                 │   │
-│   │       // Optimistic update                                          │   │
-│   │       await queryClient.cancelQueries(['medications']);             │   │
-│   │       const previous = queryClient.getQueryData(['medications', ...]);│  │
-│   │       queryClient.setQueryData(['medications', ...], (old) => ({    │   │
-│   │         ...old,                                                     │   │
-│   │         items: old.items.map(item =>                                │   │
-│   │           item.id === medicationId                                  │   │
-│   │             ? { ...item, status, isPending: true }                  │   │
-│   │             : item                                                  │   │
-│   │         )                                                           │   │
-│   │       }));                                                          │   │
-│   │       return { previous };                                          │   │
-│   │     },                                                              │   │
-│   │     onError: (err, vars, context) => {                              │   │
-│   │       // Rollback on error                                          │   │
-│   │       queryClient.setQueryData(['medications', ...], context.previous);│ │
-│   │       toast.error('Failed to log medication');                      │   │
-│   │     },                                                              │   │
-│   │     onSettled: () => {                                              │   │
-│   │       queryClient.invalidateQueries(['medications']);               │   │
-│   │     },                                                              │   │
-│   │   });                                                               │   │
-│   │ }                                                                   │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│   4. COMPONENT USAGE:                                                       │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ function MedicationCard({ medication }) {                           │   │
-│   │   const { mutate: logMed, isPending } = useLogMedication();         │   │
-│   │                                                                     │   │
-│   │   return (                                                          │   │
-│   │     <Card>                                                          │   │
-│   │       <h3>{medication.name}</h3>                                    │   │
-│   │       <Button                                                       │   │
-│   │         onClick={() => logMed({ medicationId: medication.id, status: 'GIVEN' })}│
-│   │         isLoading={isPending}                                       │   │
-│   │       >                                                             │   │
-│   │         Mark as Given                                               │   │
-│   │       </Button>                                                     │   │
-│   │     </Card>                                                         │   │
-│   │   );                                                                │   │
-│   │ }                                                                   │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
 ---
 
 ## 8. API Design
@@ -931,152 +787,71 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 │   AUTH                                                                      │
 │   ════                                                                      │
 │   POST   /api/v1/auth/register                Create account                │
+│   POST   /api/v1/auth/verify-email            Verify email                  │
 │   POST   /api/v1/auth/login                   Login                         │
 │   POST   /api/v1/auth/refresh                 Refresh tokens                │
 │   POST   /api/v1/auth/logout                  Logout                        │
 │   POST   /api/v1/auth/forgot-password         Request reset                 │
 │   POST   /api/v1/auth/reset-password          Reset password                │
-│   GET    /api/v1/auth/me                      Get current user              │
+│   GET    /api/v1/auth/sessions                Get active sessions           │
+│                                                                             │
+│   USERS                                                                     │
+│   ═════                                                                     │
+│   GET    /api/v1/users/me                     Get current user              │
+│   PUT    /api/v1/users/me                     Update profile                │
+│   GET    /api/v1/users/me/preferences         Get preferences               │
+│   PUT    /api/v1/users/me/preferences         Update preferences            │
 │                                                                             │
 │   FAMILIES                                                                  │
 │   ════════                                                                  │
 │   POST   /api/v1/families                     Create family                 │
+│   GET    /api/v1/families                     List user's families          │
 │   GET    /api/v1/families/:id                 Get family details            │
 │   GET    /api/v1/families/:id/members         Get family members            │
-│   POST   /api/v1/families/:id/invites         Invite member                 │
-│   POST   /api/v1/invites/:token/accept        Accept invite                 │
+│   POST   /api/v1/families/:id/invitations     Invite member                 │
+│   POST   /api/v1/families/invitations/:token/accept  Accept invite          │
 │   DELETE /api/v1/families/:id/members/:uid    Remove member                 │
 │                                                                             │
 │   CARE RECIPIENTS                                                           │
 │   ═══════════════                                                           │
-│   GET    /api/v1/care-recipients              List recipients               │
-│   POST   /api/v1/care-recipients              Create recipient              │
-│   GET    /api/v1/care-recipients/:id          Get recipient details         │
-│   PATCH  /api/v1/care-recipients/:id          Update recipient              │
-│   DELETE /api/v1/care-recipients/:id          Soft delete                   │
+│   GET    /api/v1/families/:fid/care-recipients         List recipients      │
+│   POST   /api/v1/families/:fid/care-recipients         Create recipient     │
+│   GET    /api/v1/families/:fid/care-recipients/:id     Get details          │
+│   PUT    /api/v1/families/:fid/care-recipients/:id     Update recipient     │
+│   DELETE /api/v1/families/:fid/care-recipients/:id     Delete               │
 │                                                                             │
 │   MEDICATIONS                                                               │
 │   ═══════════                                                               │
 │   GET    /api/v1/care-recipients/:id/medications           List meds        │
 │   POST   /api/v1/care-recipients/:id/medications           Add medication   │
-│   GET    /api/v1/care-recipients/:id/medications/schedule  Today's schedule │
-│   GET    /api/v1/medications/:id                           Get details      │
-│   PATCH  /api/v1/medications/:id                           Update           │
-│   DELETE /api/v1/medications/:id                           Deactivate       │
-│   POST   /api/v1/medications/:id/log                       Log (given/skip) │
-│   GET    /api/v1/medications/:id/history                   Log history      │
+│   GET    /api/v1/care-recipients/:id/medications/schedule/today             │
+│   POST   /api/v1/medications/:id/log                       Log medication   │
 │                                                                             │
 │   APPOINTMENTS                                                              │
 │   ════════════                                                              │
-│   GET    /api/v1/care-recipients/:id/appointments          List            │
-│   POST   /api/v1/care-recipients/:id/appointments          Create          │
-│   GET    /api/v1/appointments/:id                          Get details     │
-│   PATCH  /api/v1/appointments/:id                          Update          │
-│   DELETE /api/v1/appointments/:id                          Cancel          │
+│   GET    /api/v1/care-recipients/:id/appointments          List             │
+│   POST   /api/v1/care-recipients/:id/appointments          Create           │
+│   GET    /api/v1/care-recipients/:id/appointments/upcoming Upcoming         │
+│   PATCH  /api/v1/care-recipients/:id/appointments/:id      Update           │
 │                                                                             │
-│   DOCUMENTS                                                                 │
-│   ═════════                                                                 │
-│   GET    /api/v1/care-recipients/:id/documents             List            │
-│   POST   /api/v1/care-recipients/:id/documents             Upload          │
-│   GET    /api/v1/documents/:id                             Download        │
-│   DELETE /api/v1/documents/:id                             Delete          │
-│                                                                             │
-│   TIMELINE                                                                  │
-│   ════════                                                                  │
-│   GET    /api/v1/care-recipients/:id/timeline              List entries    │
-│   POST   /api/v1/care-recipients/:id/timeline              Add entry       │
-│   GET    /api/v1/timeline/:id                              Get entry       │
-│   PATCH  /api/v1/timeline/:id                              Update          │
-│   DELETE /api/v1/timeline/:id                              Delete          │
+│   CAREGIVER SHIFTS                                                          │
+│   ════════════════                                                          │
+│   GET    /api/v1/care-recipients/:id/shifts                List shifts      │
+│   POST   /api/v1/care-recipients/:id/shifts                Create shift     │
+│   POST   /api/v1/care-recipients/:id/shifts/:id/checkin    Check in         │
+│   POST   /api/v1/care-recipients/:id/shifts/:id/checkout   Check out        │
 │                                                                             │
 │   EMERGENCY                                                                 │
 │   ═════════                                                                 │
-│   POST   /api/v1/emergency/alert                           Trigger alert   │
-│   POST   /api/v1/emergency/alerts/:id/resolve              Resolve alert   │
-│   GET    /api/v1/care-recipients/:id/emergency-info        Get info        │
-│                                                                             │
-│   CAREGIVERS                                                                │
-│   ══════════                                                                │
-│   GET    /api/v1/care-recipients/:id/shifts                List shifts     │
-│   POST   /api/v1/care-recipients/:id/shifts                Create shift    │
-│   POST   /api/v1/shifts/:id/check-in                       Check in        │
-│   POST   /api/v1/shifts/:id/check-out                      Check out       │
+│   POST   /api/v1/families/:fid/emergency/alert             Trigger alert    │
+│   GET    /api/v1/families/:fid/emergency/alerts            List alerts      │
+│   POST   /api/v1/families/:fid/emergency/alerts/:id/resolve Resolve         │
 │                                                                             │
 │   NOTIFICATIONS                                                             │
 │   ═════════════                                                             │
-│   POST   /api/v1/notifications/subscribe                   Subscribe push  │
-│   DELETE /api/v1/notifications/subscribe                   Unsubscribe     │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Request/Response Examples
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      API REQUEST/RESPONSE EXAMPLES                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   CREATE MEDICATION                                                         │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ POST /api/v1/care-recipients/cr_abc123/medications                  │   │
-│   │ Content-Type: application/json                                      │   │
-│   │ Cookie: accessToken=eyJhbGci...                                     │   │
-│   │                                                                     │   │
-│   │ {                                                                   │   │
-│   │   "name": "Metformin",                                              │   │
-│   │   "dosage": "500mg",                                                │   │
-│   │   "frequency": "THREE_TIMES_DAILY",                                 │   │
-│   │   "times": ["08:00", "14:00", "20:00"],                             │   │
-│   │   "instructions": "Take with food",                                 │   │
-│   │   "currentSupply": 90,                                              │   │
-│   │   "refillThreshold": 15                                             │   │
-│   │ }                                                                   │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ 201 Created                                                         │   │
-│   │                                                                     │   │
-│   │ {                                                                   │   │
-│   │   "id": "med_xyz789",                                               │   │
-│   │   "careRecipientId": "cr_abc123",                                   │   │
-│   │   "name": "Metformin",                                              │   │
-│   │   "dosage": "500mg",                                                │   │
-│   │   "frequency": "THREE_TIMES_DAILY",                                 │   │
-│   │   "times": ["08:00", "14:00", "20:00"],                             │   │
-│   │   "instructions": "Take with food",                                 │   │
-│   │   "currentSupply": 90,                                              │   │
-│   │   "refillThreshold": 15,                                            │   │
-│   │   "isActive": true,                                                 │   │
-│   │   "createdAt": "2024-01-15T10:30:00Z",                              │   │
-│   │   "updatedAt": "2024-01-15T10:30:00Z"                               │   │
-│   │ }                                                                   │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│   LOG MEDICATION                                                            │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ POST /api/v1/medications/med_xyz789/log                             │   │
-│   │                                                                     │   │
-│   │ {                                                                   │   │
-│   │   "status": "GIVEN",                                                │   │
-│   │   "scheduledTime": "2024-01-15T08:00:00Z",                          │   │
-│   │   "notes": "Took with breakfast, no issues"                         │   │
-│   │ }                                                                   │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│   ERROR RESPONSE                                                            │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │ 400 Bad Request                                                     │   │
-│   │                                                                     │   │
-│   │ {                                                                   │   │
-│   │   "statusCode": 400,                                                │   │
-│   │   "message": [                                                      │   │
-│   │     "name should not be empty",                                     │   │
-│   │     "dosage should not be empty"                                    │   │
-│   │   ],                                                                │   │
-│   │   "error": "Bad Request"                                            │   │
-│   │ }                                                                   │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
+│   GET    /api/v1/notifications                             List             │
+│   PATCH  /api/v1/notifications/read/all                    Mark all read    │
+│   POST   /api/v1/notifications/push-subscription           Subscribe push   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1085,8 +860,6 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 
 ## 9. Security Implementation
 
-See [AUTH_COMPLETE_GUIDE.md](./AUTH_COMPLETE_GUIDE.md) for detailed authentication documentation.
-
 ### Security Summary
 
 ```
@@ -1094,11 +867,14 @@ See [AUTH_COMPLETE_GUIDE.md](./AUTH_COMPLETE_GUIDE.md) for detailed authenticati
 │                      SECURITY LAYERS                                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│   1. AUTHENTICATION                                                         │
-│      • JWT access tokens (15 min expiry)                                    │
-│      • HTTP-only cookies (XSS protection)                                   │
-│      • Refresh token rotation                                               │
+│   1. AUTHENTICATION (httpOnly Cookies)                                      │
+│      • Access tokens: httpOnly cookie + in-memory (15 min expiry)           │
+│      • Refresh tokens: httpOnly cookie ONLY (7-30 day expiry)               │
+│      • SameSite: strict (CSRF protection)                                   │
+│      • Secure flag in production (HTTPS only)                               │
+│      • Automatic token rotation on refresh                                  │
 │      • Session tracking in database                                         │
+│      • NO tokens in localStorage (XSS immune)                               │
 │                                                                             │
 │   2. AUTHORIZATION                                                          │
 │      • Role-based access (ADMIN, CAREGIVER, VIEWER)                         │
@@ -1107,7 +883,7 @@ See [AUTH_COMPLETE_GUIDE.md](./AUTH_COMPLETE_GUIDE.md) for detailed authenticati
 │                                                                             │
 │   3. INPUT VALIDATION                                                       │
 │      • class-validator on all DTOs                                          │
-│      • TypeORM parameterized queries (SQL injection prevention)             │
+│      • Parameterized queries (SQL injection prevention)                     │
 │      • File type validation on uploads                                      │
 │                                                                             │
 │   4. RATE LIMITING                                                          │
@@ -1122,6 +898,62 @@ See [AUTH_COMPLETE_GUIDE.md](./AUTH_COMPLETE_GUIDE.md) for detailed authenticati
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+### Authentication Flow (httpOnly Cookies)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     AUTHENTICATION FLOW                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   1. LOGIN                                                                  │
+│      Frontend: POST /auth/login { email, password }                         │
+│      Backend:  ├─ Validate credentials                                      │
+│                ├─ Generate access + refresh tokens                          │
+│                ├─ Set httpOnly cookies (access_token, refresh_token)        │
+│                └─ Return: { user, accessToken }                             │
+│      Frontend: Store access token in memory (React state)                   │
+│                                                                             │
+│   2. API REQUEST                                                            │
+│      Frontend: GET /api/v1/care-recipients                                  │
+│                ├─ Authorization: Bearer {accessToken}                       │
+│                └─ credentials: 'include' (sends cookies)                    │
+│      Backend:  Validate access token from header                            │
+│                                                                             │
+│   3. TOKEN EXPIRY (Access token expires after 15 min)                       │
+│      Frontend: API returns 401 Unauthorized                                 │
+│                ├─ POST /auth/refresh (no body, cookies sent automatically)  │
+│                └─ credentials: 'include'                                    │
+│      Backend:  ├─ Read refresh token from httpOnly cookie                   │
+│                ├─ Validate refresh token                                    │
+│                ├─ Generate NEW access + refresh tokens                      │
+│                ├─ Update httpOnly cookies (rotation)                        │
+│                └─ Return: { accessToken }                                   │
+│      Frontend: ├─ Update access token in memory                             │
+│                └─ Retry original request                                    │
+│                                                                             │
+│   4. PAGE REFRESH                                                           │
+│      Frontend: App loads → fetchUser() called                               │
+│                ├─ POST /auth/refresh (gets new access token from cookie)    │
+│                ├─ GET /auth/me (fetch user profile)                         │
+│                └─ User stays logged in!                                     │
+│                                                                             │
+│   5. LOGOUT                                                                 │
+│      Frontend: POST /auth/logout                                            │
+│      Backend:  ├─ Invalidate session in database                            │
+│                ├─ Clear httpOnly cookies                                    │
+│                └─ Return: { message: 'Logged out' }                         │
+│      Frontend: Clear access token from memory                               │
+│                                                                             │
+│   SECURITY BENEFITS:                                                        │
+│   ✅ Refresh token NEVER exposed to JavaScript (XSS immune)                 │
+│   ✅ Access token in memory only (lost on tab close)                        │
+│   ✅ SameSite: strict prevents CSRF attacks                                 │
+│   ✅ Automatic token rotation prevents token reuse                          │
+│   ✅ Cookies work seamlessly across requests                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ---
 
 ## 10. Running the Project
@@ -1129,12 +961,12 @@ See [AUTH_COMPLETE_GUIDE.md](./AUTH_COMPLETE_GUIDE.md) for detailed authenticati
 ### Prerequisites
 
 - Node.js 18+
-- pnpm 8+
+- pnpm 9+
 - Docker & Docker Compose
 
 ### Quick Start
 
-```bash
+```powershell
 # 1. Clone the repository
 git clone https://github.com/yourorg/carecircle.git
 cd carecircle
@@ -1142,21 +974,61 @@ cd carecircle
 # 2. Install dependencies
 pnpm install
 
-# 3. Set up environment variables
-cp env.example .env
-# Edit .env with your values
+# 3. Switch to local profile (generates .env files)
+.\scripts\use-local.ps1
 
-# 4. Start Docker services (PostgreSQL, Redis, RabbitMQ, Mailpit)
-docker-compose up -d
+# 4. Start Docker services (PostgreSQL, Redis, RabbitMQ)
+docker compose up -d
 
-# 5. Run database migrations
-pnpm db:migrate
+# 5. Setup database (first time only)
+pnpm --filter @carecircle/database generate
+pnpm --filter @carecircle/database push
 
-# 6. Seed database (optional)
-pnpm db:seed
+# 6. Start development servers
+pnpm dev:api      # Terminal 1 - API
+pnpm dev:web      # Terminal 2 - Web
+pnpm dev:workers  # Terminal 3 - Workers
 
-# 7. Start development servers
+# Or start all at once:
 pnpm dev
+```
+
+### Environment Configuration
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    ENVIRONMENT CONFIGURATION                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   CareCircle uses a profile-based environment system:                       │
+│                                                                             │
+│   env/                                                                      │
+│   ├── base.env          # Shared config (JWT, Cloudinary, Mailtrap, etc.)   │
+│   ├── local.env         # Local Docker services (postgres, redis, rabbitmq) │
+│   └── cloud.env         # Cloud services (for production deployment)        │
+│                                                                             │
+│   SWITCHING PROFILES:                                                       │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │ # Switch to local development                                       │   │
+│   │ .\scripts\use-local.ps1                                             │   │
+│   │                                                                     │   │
+│   │ # Switch to cloud/production                                        │   │
+│   │ .\scripts\use-cloud.ps1                                             │   │
+│   │                                                                     │   │
+│   │ # These scripts merge base.env + profile.env → .env                 │   │
+│   │ # and copy to apps/api/.env, apps/web/.env, etc.                    │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│   LOCAL PROFILE INCLUDES:                                                   │
+│   • PostgreSQL: localhost:5432 (postgres/1234)                              │
+│   • Redis: localhost:6379                                                   │
+│   • RabbitMQ: localhost:5672 (guest/guest)                                  │
+│                                                                             │
+│   THIRD-PARTY SERVICES (always):                                            │
+│   • Email: Mailtrap (sandbox.smtp.mailtrap.io)                              │
+│   • Storage: Cloudinary                                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### What Starts
@@ -1168,14 +1040,18 @@ pnpm dev
 │                                                                             │
 │  APPLICATIONS:                                                              │
 │  ├─ 🌐 Web App      → http://localhost:3000                                 │
-│  ├─ 🔌 API Server   → http://localhost:3001                                 │
-│  └─ 📚 Swagger Docs → http://localhost:3001/api/docs                        │
+│  ├─ 🔌 API Server   → http://localhost:3001/api/v1                          │
+│  ├─ 📚 Swagger Docs → http://localhost:3001/api                             │
+│  └─ ⚙️  Workers      → Background job processing                             │
 │                                                                             │
 │  INFRASTRUCTURE (Docker):                                                   │
 │  ├─ 🐘 PostgreSQL   → localhost:5432                                        │
 │  ├─ 🔴 Redis        → localhost:6379                                        │
-│  ├─ 🐰 RabbitMQ     → localhost:15672 (Management UI)                       │
-│  └─ 📧 Mailpit      → localhost:8025 (Email testing)                        │
+│  └─ 🐰 RabbitMQ     → localhost:15672 (Management UI, guest/guest)          │
+│                                                                             │
+│  THIRD-PARTY SERVICES:                                                      │
+│  ├─ 📧 Email        → Mailtrap (view emails at mailtrap.io)                 │
+│  └─ 📦 Storage      → Cloudinary                                            │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1184,128 +1060,202 @@ pnpm dev
 
 ```bash
 # Run specific app
-pnpm --filter @carecircle/api dev
-pnpm --filter @carecircle/web dev
+pnpm dev:api                              # Start API only
+pnpm dev:web                              # Start Web only
+pnpm dev:workers                          # Start Workers only
 
-# Database commands
-pnpm db:migrate          # Run migrations
-pnpm db:migrate:generate # Generate new migration
-pnpm db:seed             # Seed database
-pnpm db:studio           # Open database GUI
+# Database commands (Prisma)
+pnpm --filter @carecircle/database generate    # Generate Prisma client
+pnpm --filter @carecircle/database push        # Push schema to database
+pnpm --filter @carecircle/database studio      # Open Prisma Studio GUI
+pnpm --filter @carecircle/database migrate dev # Create migration
 
 # Build
-pnpm build               # Build all apps
-pnpm build:api           # Build API only
-
-# Testing
-pnpm test                # Run all tests
-pnpm test:e2e            # Run E2E tests
+pnpm build                                # Build all apps
 
 # Docker
-docker-compose up -d     # Start services
-docker-compose down      # Stop services
-docker-compose logs -f   # View logs
+docker compose up -d                      # Start services
+docker compose down                       # Stop services
+docker compose logs -f                    # View logs
+docker compose ps                         # Check status
 ```
 
 ---
 
 ## 11. Deployment Guide
 
-### Docker Production Build
+### Docker Production Setup
 
-```bash
-# Build all Docker images
-docker build -f apps/api/Dockerfile -t carecircle-api .
-docker build -f apps/web/Dockerfile -t carecircle-web .
-docker build -f apps/workers/Dockerfile -t carecircle-workers .
+**Production-ready Docker Compose configuration for scalable deployment**
 
-# Or use docker-compose
-docker-compose -f docker-compose.prod.yml build
+See [DOCKER_DEPLOYMENT.md](./DOCKER_DEPLOYMENT.md) for complete deployment guide.
+
+#### Quick Start
+
+```powershell
+# 1. Setup environment
+.\scripts\use-cloud.ps1
+# Edit env/cloud.env with your production values
+
+# 2. Build all images (Windows)
+.\scripts\deploy-prod.ps1 -Build
+
+# 3. Start all services
+.\scripts\deploy-prod.ps1 -Up
+
+# 4. Verify deployment
+docker-compose -f docker-compose.prod.yml ps
 ```
 
-### Environment Variables (Production)
+#### Production Architecture
 
-```env
-# Database
-DATABASE_URL=postgresql://user:pass@db-host:5432/carecircle
-
-# Redis
-REDIS_URL=redis://:password@redis-host:6379
-
-# RabbitMQ
-RABBITMQ_URL=amqps://user:pass@rabbitmq-host:5671
-
-# JWT (use secure, unique values!)
-JWT_SECRET=your-256-bit-secret-key
-JWT_REFRESH_SECRET=your-different-256-bit-secret
-
-# Frontend URL (for CORS)
-FRONTEND_URL=https://app.carecircle.com
-
-# Storage (AWS S3 for production)
-AWS_S3_BUCKET=carecircle-documents
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=AKIA...
-AWS_SECRET_ACCESS_KEY=...
-
-# Email (production provider)
-SMTP_HOST=email-smtp.us-east-1.amazonaws.com
-SMTP_PORT=587
-SMTP_USER=AKIA...
-SMTP_PASS=...
-
-# Push Notifications
-VAPID_PUBLIC_KEY=...
-VAPID_PRIVATE_KEY=...
 ```
-
-### Kubernetes (Overview)
-
-```yaml
-# Simplified overview - see k8s/ folder for full manifests
-
-# API Deployment
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: carecircle-api
-spec:
-  replicas: 3
-  template:
-    spec:
-      containers:
-        - name: api
-          image: carecircle-api:latest
-          ports:
-            - containerPort: 3001
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "100m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PRODUCTION DEPLOYMENT ARCHITECTURE                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   Nginx (Load Balancer)                                                     │
+│   ├─ Rate Limiting: 100 req/s (API), 200 req/s (Web)                       │
+│   ├─ SSL/TLS Termination                                                    │
+│   └─ Static Asset Caching (1 year immutable)                               │
+│                                                                             │
+│   API Service (4 replicas)                                                  │
+│   ├─ 2GB memory per instance                                               │
+│   ├─ Health checks enabled                                                  │
+│   └─ Auto-restart on failure                                                │
+│                                                                             │
+│   Web Service (3 replicas)                                                  │
+│   ├─ 1GB memory per instance                                               │
+│   ├─ Next.js standalone mode                                               │
+│   └─ PWA with offline support                                               │
+│                                                                             │
+│   Workers Service (3 replicas)                                              │
+│   ├─ 512MB memory per instance                                             │
+│   └─ Background job processing                                              │
+│                                                                             │
+│   PostgreSQL                                                                │
+│   ├─ 4GB memory allocation                                                 │
+│   └─ 200 max connections                                                    │
+│                                                                             │
+│   Redis                                                                      │
+│   ├─ 2GB memory with LRU eviction                                          │
+│   └─ AOF persistence enabled                                                │
+│                                                                             │
+│   RabbitMQ                                                                   │
+│   ├─ 2GB memory allocation                                                 │
+│   └─ Event-driven messaging                                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
-# Horizontal Pod Autoscaler
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: carecircle-api-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: carecircle-api
-  minReplicas: 3
-  maxReplicas: 10
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
+
+## 12. Implemented Features Status
+
+### ✅ Core Features (Completed & Tested)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    COMPLETED FEATURES                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   🔐 AUTHENTICATION & AUTHORIZATION                                         │
+│   ✅ User registration with email verification                              │
+│   ✅ Login with JWT access/refresh tokens                                   │
+│   ✅ Token refresh mechanism                                                │
+│   ✅ Password reset flow                                                    │
+│   ✅ Role-based access control (ADMIN, CAREGIVER, VIEWER)                   │
+│   ✅ Session management & tracking                                          │
+│   ✅ HTTP-only cookies for security                                         │
+│                                                                             │
+│   👥 FAMILY MANAGEMENT                                                      │
+│   ✅ Create and manage families                                             │
+│   ✅ Invite family members via email                                        │
+│   ✅ Accept/decline invitations                                             │
+│   ✅ Manage family member roles                                             │
+│   ✅ Remove family members                                                  │
+│   ✅ Family-scoped data isolation                                           │
+│                                                                             │
+│   🧑‍⚕️ CARE RECIPIENT MANAGEMENT                                             │
+│   ✅ Create and manage care recipients                                      │
+│   ✅ Store medical information (allergies, conditions, blood type)          │
+│   ✅ Add doctors and emergency contacts                                     │
+│   ✅ Store insurance information                                            │
+│                                                                             │
+│   💊 MEDICATION TRACKING                                                    │
+│   ✅ Add medications with schedules                                         │
+│   ✅ Daily medication schedule view                                         │
+│   ✅ Log medications (given/skipped/missed)                                 │
+│   ✅ Supply tracking & refill alerts                                        │
+│   ✅ Medication history                                                     │
+│                                                                             │
+│   📅 APPOINTMENTS & CALENDAR                                                │
+│   ✅ Create one-time appointments                                           │
+│   ✅ Create recurring appointments                                          │
+│   ✅ Appointment reminders                                                  │
+│   ✅ Transport assignment                                                   │
+│                                                                             │
+│   📄 DOCUMENT MANAGEMENT                                                    │
+│   ✅ Upload documents to Cloudinary                                         │
+│   ✅ Secure document storage                                                │
+│   ✅ Document expiration tracking                                           │
+│                                                                             │
+│   🚨 EMERGENCY ALERTS                                                       │
+│   ✅ Trigger emergency alerts                                               │
+│   ✅ Alert types (FALL, MEDICAL, HOSPITALIZATION, MISSING)                  │
+│   ✅ Family notification system                                             │
+│   ✅ Resolve and acknowledge alerts                                         │
+│                                                                             │
+│   👨‍⚕️ CAREGIVER SCHEDULING                                                  │
+│   ✅ Create shifts for caregivers                                           │
+│   ✅ Shift overlap validation                                               │
+│   ✅ Check-in/check-out functionality                                       │
+│   ✅ Handoff notes for shift transitions                                    │
+│                                                                             │
+│   🔔 REAL-TIME & NOTIFICATIONS                                              │
+│   ✅ Real-time updates via Socket.io                                        │
+│   ✅ WebSocket gateway with family rooms                                    │
+│   ✅ Push notifications (WebPush/VAPID)                                     │
+│   ✅ Emergency alerts notify everyone instantly                             │
+│   ✅ RabbitMQ event consumers                                               │
+│                                                                             │
+│   📱 MOBILE PWA                                                             │
+│   ✅ App installable on phone                                               │
+│   ✅ Works offline (service worker)                                         │
+│   ✅ Push notifications on mobile                                           │
+│   ✅ Responsive design                                                      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 🎉 Production Ready
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PRODUCTION READY - ALL FEATURES COMPLETE                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ✅ ALL BACKEND SYSTEMS OPERATIONAL                                        │
+│   ✅ ALL FRONTEND FEATURES IMPLEMENTED                                      │
+│   ✅ REAL-TIME WEBSOCKET CONNECTED                                          │
+│   ✅ PUSH NOTIFICATIONS CONFIGURED                                          │
+│   ✅ EVENT CONSUMERS RUNNING                                                │
+│   ✅ RABBITMQ QUEUES ACTIVE                                                 │
+│   ✅ MOBILE PWA CONFIGURED & INSTALLABLE                                    │
+│   ✅ OFFLINE MODE WITH SERVICE WORKER                                       │
+│                                                                             │
+│   🚀 Application URLs:                                                     │
+│      - Web: http://localhost:3000                                          │
+│      - API: http://localhost:3001/api/v1                                   │
+│      - Swagger: http://localhost:3001/api                                  │
+│      - RabbitMQ: http://localhost:15672 (guest/guest)                      │
+│                                                                             │
+│   📱 Mobile PWA:                                                            │
+│      - Visit http://localhost:3000 on mobile                               │
+│      - Click "Add to Home Screen"                                          │
+│      - Use as native app with offline support                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -1313,8 +1263,8 @@ spec:
 ## Next Steps
 
 1. **Start here**: [Running the Project](#10-running-the-project)
-2. **Understand auth**: [AUTH_COMPLETE_GUIDE.md](./AUTH_COMPLETE_GUIDE.md)
-3. **Learn events**: [EVENT_DRIVEN_ARCHITECTURE.md](../EVENT_DRIVEN_ARCHITECTURE.md)
+2. **Understand auth**: [AUTHENTICATION.md](./AUTHENTICATION.md)
+3. **Free services setup**: [FREE_SERVICES_SETUP.md](../getting-started/FREE_SERVICES_SETUP.md)
 4. **Master production**: [engineering-mastery/](../engineering-mastery/)
 
 ---
