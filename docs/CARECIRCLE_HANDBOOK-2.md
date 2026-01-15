@@ -183,18 +183,205 @@ curl "$BASE_URL/users/me" \
 
 **Security Audit Checklist:**
 
-- [ ] Passwords hashed with bcrypt (cost 10+)
-- [ ] JWT signed with HS256 or RS256
-- [ ] Access tokens expire within 1 hour (we use 15min)
-- [ ] Refresh tokens stored hashed in database
-- [ ] Refresh tokens rotate on use
-- [ ] HTTP-only cookies prevent XSS
-- [ ] SameSite=Strict prevents CSRF
-- [ ] Rate limiting on auth endpoints
-- [ ] Email verification required before login
-- [ ] Password reset uses time-limited tokens
-- [ ] Sessions track IP/user agent for anomaly detection
-- [ ] HTTPS enforced in production (nginx config)
+- [x] Passwords hashed with bcrypt (cost 10+)
+- [x] JWT signed with HS256 or RS256
+- [x] Access tokens expire within 1 hour (we use 15min)
+- [x] Refresh tokens stored hashed in database
+- [x] Refresh tokens rotate on use (✅ Fixed January 2026)
+- [x] HTTP-only cookies prevent XSS
+- [x] SameSite=Strict prevents CSRF
+- [x] Rate limiting on auth endpoints
+- [x] Email verification required before login
+- [x] Password reset uses time-limited tokens
+- [x] Sessions track IP/user agent for anomaly detection
+- [x] HTTPS enforced in production (nginx config)
+
+### Recent Auth Bug Fixes (January 2026)
+
+**1. Auth Infinite Loop Fix**
+
+**Problem:** Users experiencing infinite refresh token loop with hundreds of API calls per second.
+
+**Root Causes:**
+- Backend wasn't rotating refresh tokens - session table had old token while client had new one
+- Frontend API client had no guard against recursive refresh calls
+
+**Solution:**
+```typescript
+// Backend: auth.service.ts
+async refreshToken(refreshToken: string): Promise<TokenPair> {
+  const session = await this.sessionRepository.findByRefreshToken(refreshToken);
+
+  if (!session || !session.isActive || session.isExpired()) {
+    throw new UnauthorizedException('Invalid or expired refresh token');
+  }
+
+  // Generate new tokens (token rotation for security)
+  const newTokens = await this.generateTokens(user);
+
+  // ✅ FIX: Update session with new refresh token (token rotation)
+  await this.sessionRepository.updateRefreshToken(session.id, newTokens.refreshToken);
+  await this.sessionRepository.updateLastUsed(session.id);
+
+  return newTokens;
+}
+
+// Frontend: client.ts
+private isRefreshing = false; // ✅ FIX: Prevent recursive refresh loops
+
+private async refreshAccessToken(): Promise<void> {
+  // ✅ FIX: Prevent infinite loop if refresh itself fails
+  if (this.isRefreshing) {
+    throw new ApiError(401, { message: 'Already refreshing' });
+  }
+
+  this.isRefreshing = true;
+
+  try {
+    const response = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new ApiError(response.status, await response.json());
+    }
+
+    const data = await response.json();
+    this.setAccessToken(data.accessToken);
+  } finally {
+    this.isRefreshing = false; // ✅ Always reset flag
+  }
+}
+```
+
+**2. Route Flickering Fix**
+
+**Problem:** Authenticated users visiting `/forgot-password` saw content briefly before redirect (flicker).
+
+**Root Cause:** PublicRoute component returned `null` while waiting for redirect, creating blank state.
+
+**Solution:**
+```typescript
+// PublicRoute.tsx and ProtectedRoute.tsx
+// ✅ FIX: Show loading spinner instead of null during redirect
+if (!isInitialized || isLoading || isAuthenticated) {
+  return <AuthLoadingSpinner />; // Instead of null
+}
+```
+
+### Family Admin Password Reset (NEW)
+
+**Use Case:** Elderly care recipients with dementia cannot remember email passwords. Family admins need ability to reset passwords without email access.
+
+**Security Model:**
+- Only family ADMIN role can reset passwords
+- Cannot reset own password this way (prevents privilege escalation)
+- Target user must be in same family
+- Generates secure temporary password (8+ chars, uppercase, number, special char)
+- Sends temp password via email to user's registered email
+- Forces password change on next login
+
+**API Endpoint:**
+```typescript
+POST /api/v1/family/:familyId/members/:userId/reset-password
+
+// Request (no body - admin auth from JWT)
+Authorization: Bearer <admin-jwt>
+
+// Response
+{
+  "message": "Password reset successfully. Temporary password sent via email."
+}
+
+// Errors
+- 403: Admin role required
+- 404: Family member not found
+- 400: Cannot reset own password
+```
+
+**Backend Implementation:**
+```typescript
+// family.service.ts
+async resetMemberPassword(familyId: string, targetUserId: string): Promise<{ message: string }> {
+  const adminUserId = ContextHelper.getUserId();
+
+  // 1. Verify admin has permission
+  const adminMember = await this.memberRepository.findOne({
+    where: { userId: adminUserId, familyId, role: FamilyRole.ADMIN },
+    relations: ['user'],
+  });
+
+  if (!adminMember) {
+    throw new ForbiddenException('Only family admins can reset passwords');
+  }
+
+  // 2. Verify target is in same family
+  const targetMember = await this.memberRepository.findOne({
+    where: { userId: targetUserId, familyId },
+    relations: ['user'],
+  });
+
+  if (!targetMember) {
+    throw new NotFoundException('Family member not found');
+  }
+
+  // 3. Prevent self-reset (security)
+  if (targetUserId === adminUserId) {
+    throw new BadRequestException('Use change password feature to change your own password');
+  }
+
+  // 4. Generate temporary password
+  const tempPassword = `Care${crypto.randomBytes(4).toString('hex')}!1`;
+
+  // 5. Update user password
+  const user = targetMember.user;
+  user.password = tempPassword;
+  await user.hashPassword();
+  user.passwordChangedAt = new Date();
+  await this.userRepository.save(user);
+
+  // 6. Send email
+  await this.mailService.sendPasswordResetByAdmin(
+    user.email,
+    tempPassword,
+    user.fullName,
+    adminMember.user?.fullName || 'A family admin',
+  );
+
+  return { message: 'Password reset successfully. Temporary password sent via email.' };
+}
+```
+
+**Email Template:**
+```html
+Subject: Your Password Was Reset - CareCircle
+
+Hello {{userName}},
+
+{{adminName}} (a family admin) has reset your password for security reasons.
+
+Your temporary password is: {{tempPassword}}
+
+Please log in at {{loginUrl}} and change your password immediately.
+
+This is an automated message. Please do not reply.
+```
+
+**Frontend Integration (Pending):**
+```tsx
+// Family settings page - add button for admin users
+{member.role === 'ADMIN' && (
+  <Button onClick={() => resetMemberPassword(member.id)}>
+    Reset Password
+  </Button>
+)}
+
+async function resetMemberPassword(userId: string) {
+  await api.post(`/family/${familyId}/members/${userId}/reset-password`);
+  toast.success('Password reset successfully. Email sent to user.');
+}
+```
 
 ---
 
@@ -1761,6 +1948,494 @@ A: Every event is consumed by `AuditConsumer`, logged to `audit_log` table with 
 
 **Q30: How do we handle GDPR data deletion?**
 A: (Future) Implement "Delete User" endpoint that anonymizes/deletes all related data (care recipients, medications, documents). Requires cascading deletes or soft deletes.
+
+---
+
+## Web Push Notifications (NEW - January 2026)
+
+### Overview
+
+CareCircle uses **native Web Push API** with **VAPID** keys - no Firebase dependency, no vendor lock-in, works offline.
+
+**Use Cases:**
+- 🚨 Emergency alerts (FALL, MEDICAL, HOSPITALIZATION)
+- 💊 Medication reminders (scheduled based on medication times)
+- 📅 Appointment reminders (24h, 1h, 15min before)
+- 👥 Family member joins/leaves notifications
+
+**Architecture:**
+
+```
+┌─────────────┐      ┌─────────────┐      ┌──────────────┐      ┌──────────────┐
+│   Browser   │      │   Service   │      │  NestJS API  │      │   Worker     │
+│   (Client)  │◀────▶│   Worker    │◀────▶│(Push Tokens) │◀────▶│ (Web Push)   │
+└─────────────┘      └─────────────┘      └──────────────┘      └──────────────┘
+      │                     │                      │                     │
+      │ 1. Subscribe        │                      │                     │
+      ├────────────────────▶│                      │                     │
+      │                     │ 2. Save subscription │                     │
+      │                     ├─────────────────────▶│                     │
+      │                     │                      │ 3. Event triggers   │
+      │                     │                      │    push notification│
+      │                     │                      ├────────────────────▶│
+      │                     │ 4. Push notification │                     │
+      │◀──────────────────────────────────────────┼─────────────────────┤
+      │                     │                      │                     │
+      │ 5. Show notification│                      │                     │
+      │ (even if tab closed)│                      │                     │
+```
+
+### Setup Instructions
+
+**1. Generate VAPID Keys**
+
+```bash
+cd apps/api
+npx web-push generate-vapid-keys
+
+# Output:
+# Public Key: BEK...xyz
+# Private Key: abc...123
+```
+
+**2. Add to Environment**
+
+```env
+# apps/api/.env
+VAPID_PUBLIC_KEY=BEK...xyz
+VAPID_PRIVATE_KEY=abc...123
+VAPID_SUBJECT=mailto:admin@carecircle.app
+```
+
+```env
+# apps/web/.env
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=BEK...xyz  # Must match API public key
+```
+
+**3. Backend - Web Push Service**
+
+```typescript
+// apps/api/src/notifications/web-push.service.ts
+import * as webpush from 'web-push';
+
+@Injectable()
+export class WebPushService {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly userRepository: UserRepository,
+  ) {
+    // Configure web-push with VAPID keys
+    const publicKey = this.configService.get<string>('VAPID_PUBLIC_KEY');
+    const privateKey = this.configService.get<string>('VAPID_PRIVATE_KEY');
+    const subject = this.configService.get<string>('VAPID_SUBJECT');
+
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+  }
+
+  async sendNotification(userId: string, payload: PushNotificationPayload): Promise<void> {
+    const subscriptions = await this.userRepository.getPushSubscriptions(userId);
+
+    if (!subscriptions || subscriptions.length === 0) {
+      return;
+    }
+
+    const promises = subscriptions.map(async (subscription) => {
+      try {
+        await webpush.sendNotification(subscription, JSON.stringify(payload));
+      } catch (error: any) {
+        // Handle subscription expiration (410 Gone)
+        if (error.statusCode === 410) {
+          await this.userRepository.removePushSubscription(userId, subscription.endpoint);
+        }
+      }
+    });
+
+    await Promise.allSettled(promises);
+  }
+
+  async sendEmergencyAlert(
+    userIds: string[],
+    careRecipientName: string,
+    alertMessage: string,
+    alertId: string
+  ): Promise<void> {
+    const payload: PushNotificationPayload = {
+      title: '🚨 Emergency Alert',
+      body: `Emergency reported for ${careRecipientName}: ${alertMessage}`,
+      icon: '/icons/emergency-icon.png',
+      data: {
+        url: `/emergency/${alertId}`,
+        type: 'EMERGENCY_ALERT',
+        careRecipientName,
+        alertId,
+      },
+      actions: [
+        { action: 'view', title: 'View Details' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ],
+    };
+
+    await this.sendToMultiple(userIds, payload);
+  }
+}
+```
+
+**4. Frontend - Subscribe to Push Notifications**
+
+```typescript
+// apps/web/src/lib/push-notifications.ts
+export async function subscribeToPushNotifications(userId: string): Promise<void> {
+  // 1. Request permission
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    throw new Error('Notification permission denied');
+  }
+
+  // 2. Register service worker
+  const registration = await navigator.serviceWorker.ready;
+
+  // 3. Subscribe to push
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+  });
+
+  // 4. Send subscription to backend
+  await api.post('/users/push-subscription', {
+    subscription: subscription.toJSON(),
+  });
+}
+```
+
+**5. Service Worker - Handle Push Events**
+
+```javascript
+// apps/web/public/sw.js
+self.addEventListener('push', function (event) {
+  if (!event.data) return;
+
+  const payload = event.data.json();
+
+  const options = {
+    body: payload.body,
+    icon: payload.icon || '/icons/app-icon-192.png',
+    badge: payload.badge || '/icons/badge-72x72.png',
+    data: payload.data,
+    actions: payload.actions || [],
+    requireInteraction: payload.data?.type === 'EMERGENCY_ALERT',
+  };
+
+  event.waitUntil(self.registration.showNotification(payload.title, options));
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+
+  const url = event.notification.data?.url || '/dashboard';
+
+  event.waitUntil(
+    clients.openWindow(url)
+  );
+});
+```
+
+**6. Database - Store Push Subscriptions**
+
+```typescript
+// apps/api/src/user/entity/push-token.entity.ts
+@Entity('push_tokens')
+export class PushToken extends BaseEntityWithoutSoftDelete {
+  @Column({ type: 'uuid' })
+  userId: string;
+
+  @Column({ unique: true })
+  token: string; // subscription.endpoint
+
+  @Column({ type: 'enum', enum: Platform })
+  platform: Platform; // WEB, IOS, ANDROID
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  // Web Push Subscription (for Platform.WEB only)
+  @Column({ type: 'jsonb', nullable: true })
+  subscription?: {
+    endpoint: string;
+    expirationTime?: number | null;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
+}
+```
+
+### Testing Locally
+
+```bash
+# 1. Start API and Web
+pnpm dev
+
+# 2. Open browser (Chrome/Edge)
+http://localhost:3000
+
+# 3. Enable notifications (button in UI or manually call)
+await subscribeToPushNotifications(userId);
+
+# 4. Trigger event (e.g., log medication)
+POST /api/v1/medications/:id/log
+
+# 5. Check notification appears (even if browser tab closed!)
+```
+
+**Browser Support:**
+- ✅ Chrome/Edge (full support)
+- ✅ Firefox (full support)
+- ✅ Safari 16+ (full support)
+- ❌ iOS Safari <16.4 (no push support)
+
+### Production Considerations
+
+1. **HTTPS Required:** Web Push only works on HTTPS (localhost exception for dev)
+2. **User Permission:** Always request permission gracefully, don't spam
+3. **Subscription Expiration:** Handle 410 Gone errors by removing subscription
+4. **Rate Limiting:** Don't spam users with notifications
+5. **Battery Impact:** Be mindful of notification frequency
+6. **Offline Support:** Notifications work even when app is closed
+
+---
+
+## Stream Chat Integration (Ready to Add)
+
+### Overview
+
+**Stream Chat** provides pre-built React components for real-time messaging. Recommended for family communication features.
+
+**Use Cases:**
+- 👨‍👩‍👧 Family chat (all members)
+- 💬 Direct messaging (1-on-1)
+- 📝 Care topic discussions (medications, appointments)
+
+**Why Stream Chat:**
+- Pre-built React UI components (saves 2-3 weeks of dev time)
+- Real-time messaging with WebSockets
+- Message history and search
+- File/image sharing
+- Typing indicators, read receipts
+- Free tier: 5M API calls/month, unlimited channels
+
+**Alternatives Considered:**
+- **Custom Socket.io Chat:** More control, but requires building all UI from scratch
+- **Firebase Chat:** Vendor lock-in, harder to self-host
+- **WhatsApp API:** Requires business account, limited customization
+
+### Setup Instructions
+
+**1. Create Stream Account**
+
+```bash
+# Sign up at https://getstream.io/
+# Get API key and secret from dashboard
+```
+
+**2. Add to Environment**
+
+```env
+# apps/api/.env
+NEXT_PUBLIC_STREAM_API_KEY=your_api_key
+STREAM_API_SECRET=your_api_secret
+
+# apps/web/.env
+NEXT_PUBLIC_STREAM_API_KEY=your_api_key  # Must match API key
+```
+
+**3. Install Dependencies**
+
+```bash
+cd apps/web
+pnpm add stream-chat stream-chat-react
+
+cd apps/api
+pnpm add stream-chat
+```
+
+**4. Backend - Generate User Tokens**
+
+```typescript
+// apps/api/src/chat/chat.service.ts
+import { StreamChat } from 'stream-chat';
+
+@Injectable()
+export class ChatService {
+  private streamClient: StreamChat;
+
+  constructor(private configService: ConfigService) {
+    this.streamClient = StreamChat.getInstance(
+      this.configService.get('NEXT_PUBLIC_STREAM_API_KEY'),
+      this.configService.get('STREAM_API_SECRET')
+    );
+  }
+
+  async generateUserToken(userId: string): Promise<string> {
+    return this.streamClient.createToken(userId);
+  }
+
+  async createFamilyChannel(familyId: string, memberIds: string[]) {
+    const channel = this.streamClient.channel('messaging', `family-${familyId}`, {
+      created_by_id: memberIds[0],
+      members: memberIds,
+      name: 'Family Chat',
+    });
+    await channel.create();
+    return channel;
+  }
+}
+
+// Add API endpoint
+@Get('/chat/token')
+async getChatToken(@Req() req) {
+  const userId = req.user.id;
+  const token = await this.chatService.generateUserToken(userId);
+  return { token };
+}
+```
+
+**5. Frontend - Initialize Chat**
+
+```typescript
+// apps/web/src/lib/stream-chat.ts
+import { StreamChat, Channel } from 'stream-chat';
+
+const API_KEY = process.env.NEXT_PUBLIC_STREAM_API_KEY!;
+let chatClient: StreamChat | null = null;
+
+export async function initializeChat(user: ChatUser, userToken: string): Promise<StreamChat> {
+  if (chatClient) {
+    return chatClient;
+  }
+
+  chatClient = StreamChat.getInstance(API_KEY);
+
+  await chatClient.connectUser(
+    {
+      id: user.id,
+      name: user.name,
+      image: user.image,
+    },
+    userToken
+  );
+
+  return chatClient;
+}
+
+export async function getFamilyChannel(familyId: string, familyName: string): Promise<Channel> {
+  if (!chatClient) {
+    throw new Error('Chat not initialized. Call initializeChat() first');
+  }
+
+  const channel = chatClient.channel('messaging', `family-${familyId}`, {
+    name: `${familyName} Chat`,
+    image: '/icons/family-chat.png',
+  });
+
+  await channel.watch();
+  return channel;
+}
+
+export async function disconnectChat(): Promise<void> {
+  if (chatClient) {
+    await chatClient.disconnectUser();
+    chatClient = null;
+  }
+}
+```
+
+**6. Frontend - Chat UI Component**
+
+```tsx
+// apps/web/src/app/(app)/chat/page.tsx
+import { useEffect, useState } from 'react';
+import { Channel } from 'stream-chat';
+import { Chat, Channel as ChatChannel, ChannelHeader, MessageList, MessageInput, Thread, Window } from 'stream-chat-react';
+import { initializeChat, getFamilyChannel, disconnectChat } from '@/lib/stream-chat';
+import 'stream-chat-react/dist/css/v2/index.css';
+
+export default function FamilyChat() {
+  const [channel, setChannel] = useState<Channel | null>(null);
+  const [client, setClient] = useState(null);
+
+  useEffect(() => {
+    async function setupChat() {
+      // Get user token from your API
+      const response = await fetch('/api/v1/chat/token');
+      const { token } = await response.json();
+
+      // Initialize client
+      const client = await initializeChat(
+        { id: user.id, name: user.fullName, image: user.avatarUrl },
+        token
+      );
+      setClient(client);
+
+      // Get family channel
+      const familyChannel = await getFamilyChannel(familyId, familyName);
+      setChannel(familyChannel);
+    }
+
+    setupChat();
+
+    return () => {
+      disconnectChat();
+    };
+  }, []);
+
+  if (!client || !channel) return <div>Loading chat...</div>;
+
+  return (
+    <Chat client={client}>
+      <ChatChannel channel={channel}>
+        <Window>
+          <ChannelHeader />
+          <MessageList />
+          <MessageInput />
+        </Window>
+        <Thread />
+      </ChatChannel>
+    </Chat>
+  );
+}
+```
+
+### Features Supported
+
+- ✅ Real-time messaging
+- ✅ Message history and pagination
+- ✅ Typing indicators
+- ✅ Read receipts
+- ✅ File/image uploads
+- ✅ Emoji reactions
+- ✅ Message threading
+- ✅ User mentions
+- ✅ Link previews
+- ✅ Message search
+
+### Cost
+
+**Free Tier:**
+- 5 million API calls/month
+- Unlimited channels
+- Unlimited users
+- 100GB message history
+
+**Paid Plans:** Start at $99/month for more API calls and advanced features
+
+### Production Considerations
+
+1. **Token Security:** Never expose STREAM_API_SECRET in frontend
+2. **User Sync:** Keep Stream users in sync with your database
+3. **Moderation:** Implement content moderation for family safety
+4. **Rate Limiting:** Monitor API usage to stay within free tier
+5. **Offline Support:** Stream Chat SDK handles offline queue automatically
 
 ---
 

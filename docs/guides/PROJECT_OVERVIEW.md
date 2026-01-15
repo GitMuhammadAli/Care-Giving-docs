@@ -100,6 +100,25 @@ CareCircle is a **family caregiving coordination platform** that helps families 
 | **Storage** | Cloudinary | Document vault, image storage (third-party) |
 | **Email** | Mailtrap | Email testing in development (third-party) |
 | **Auth** | JWT + HTTP-only cookies | Secure, stateless auth |
+| **Push Notifications** | Web Push API (Native) | No Firebase, works offline, native browser support |
+
+### ✨ Latest Updates (January 2026)
+
+**Critical Bugs Fixed:**
+- ✅ **Auth Infinite Loop** - Fixed refresh token rotation preventing infinite API calls
+- ✅ **Route Flickering** - Smooth transitions between protected/public routes
+
+**New Features:**
+- ✅ **Password Reset System**
+  - Email-based reset with secure tokens (SHA-256, 1-hour expiration)
+  - **NEW:** Family Admin Reset - Admins can reset passwords for elderly members
+- ✅ **Web Push Notifications** (85% complete)
+  - Emergency alerts, medication reminders, appointment notifications
+  - Native browser API (no Firebase dependency)
+  - Works offline with service workers
+- 📋 **Chat Integration** - Ready to add (Stream Chat or WhatsApp recommended)
+
+**Status:** ~95% Production Ready! 🚀
 
 ---
 

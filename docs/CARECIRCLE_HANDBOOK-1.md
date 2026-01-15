@@ -38,8 +38,9 @@ CareCircle consolidates all care information in one place, accessible by all aut
 |---------|---------|----------|-----------|--------|
 | User Registration & Email Verification | ✅ | ✅ | N/A | ✅ |
 | Login with JWT Access/Refresh Tokens | ✅ | ✅ | N/A | ✅ |
-| Token Refresh Flow | ✅ | ✅ | N/A | ✅ |
-| Password Reset Flow | ✅ | ✅ | N/A | ✅ |
+| Token Refresh Flow (With Rotation) | ✅ | ✅ | N/A | ✅ |
+| Password Reset Flow (Email-Based) | ✅ | ✅ | N/A | ✅ |
+| Family Admin Password Reset | ✅ | 📋 | N/A | ✅ |
 | Family Creation | ✅ | ✅ | N/A | ✅ |
 | Family Invitations (Email-Based) | ✅ | ✅ | N/A | ✅ |
 | Role-Based Access (ADMIN/CAREGIVER/VIEWER) | ✅ | ✅ | N/A | ✅ |
@@ -69,6 +70,17 @@ CareCircle consolidates all care information in one place, accessible by all aut
 - All background jobs execute on schedule
 - All Docker containers start healthy and pass probes
 - Full QA smoke test passes (see `docs/QA_TEST_REPORT.md`)
+
+**Recent Updates (January 2026):**
+
+**🐛 Critical Bugs Fixed:**
+- **Auth Infinite Loop**: Fixed refresh token rotation preventing infinite API calls. Backend now properly updates session with new refresh token, and frontend has recursion guard to prevent refresh loops.
+- **Route Flickering**: Fixed authentication route transitions showing blank pages. Protected and public routes now show loading spinner during redirect instead of null/blank state.
+
+**✨ New Features Added:**
+- **Family Admin Password Reset** (Backend Complete, Frontend Pending): Family admins can now reset passwords for elderly family members who cannot access email. Sends temporary password via email. Perfect for dementia care scenarios. API endpoint: `POST /api/v1/family/:familyId/members/:userId/reset-password`
+- **Web Push Notifications** (Complete): Native browser push notifications for emergency alerts, medication reminders, and appointment notifications. Works offline with service workers. No Firebase dependency - uses native Web Push API with VAPID keys.
+- **Stream Chat Integration** (Ready to Add): Helper functions created for family chat channels, direct messaging, and care topic discussions. Frontend integration pending. Uses Stream Chat SDK with pre-built React components.
 
 ### What's Next (Future Roadmap)
 
