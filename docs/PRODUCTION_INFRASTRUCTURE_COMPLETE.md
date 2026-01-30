@@ -1,8 +1,8 @@
 # 🏗️ CareCircle Production Infrastructure - Complete Reference
 
-**Version:** 5.8.0
-**Last Updated:** January 28, 2026
-**Status:** ✅ **PRODUCTION-READY & LOAD TESTED** - 100 Concurrent Users Verified!
+**Version:** 5.9.0
+**Last Updated:** January 29, 2026
+**Status:** ✅ **PRODUCTION-READY & UI ENHANCED** - 100 Concurrent Users Verified!
 
 ---
 
@@ -34,6 +34,54 @@
 
 ---
 
+## 🎨 Latest Updates (January 29, 2026) - UI & Developer Experience
+
+### UI Animations & Visual Enhancements
+
+| Feature | Implementation | Performance |
+|---------|---------------|-------------|
+| **Animated Background** | Floating spheres + falling leaves | GPU-accelerated, `will-change` optimized |
+| **Button Effects** | Shine sweep, scale on click | CSS-only where possible |
+| **Card Animations** | 3D perspective, cursor spotlight | Framer Motion with `transform3d` |
+| **Input Animations** | Focus glow, floating labels | CSS transitions |
+| **Auth Pages** | Staggered entrance animations | `animation-delay` sequencing |
+| **Landing Page** | Complete redesign with hero, testimonials | Intersection Observer for lazy load |
+| **Chat UI** | Custom Stream Chat theme | CSS overrides in `chat-styles.css` |
+
+### Local Development Environment
+
+```bash
+# Switch to local Docker services
+.\scripts\use-local.ps1
+
+# Start Docker containers
+docker compose up -d
+
+# Seed database with test data
+pnpm --filter @carecircle/database seed
+
+# Start all services
+pnpm dev
+```
+
+| Service | Local | Cloud |
+|---------|-------|-------|
+| **PostgreSQL** | `localhost:5432` | Neon (serverless) |
+| **Redis** | `localhost:6379` | Upstash (TLS) |
+| **RabbitMQ** | `localhost:5672` | CloudAMQP |
+
+### BullMQ Redis Optimization
+
+| Setting | Development | Production | Purpose |
+|---------|-------------|------------|---------|
+| `drainDelay` | 5000ms | 1000ms | Reduce idle polling |
+| `stalledInterval` | 120000ms | 30000ms | Check stalled jobs less often |
+| `QueueEvents` | Disabled | Enabled | Save Redis requests in dev |
+
+**Result:** Prevents Upstash free tier quota exhaustion (500K requests/month).
+
+---
+
 ## 📊 Project Statistics
 
 | Metric                    | Count                                |
@@ -41,9 +89,9 @@
 | **Total Apps**            | 4 (API, Web, Workers, Pixel-Perfect) |
 | **Shared Packages**       | 3 (database, logger, config)         |
 | **API Modules**           | 15+                                  |
-| **Frontend Pages**        | 25+                                  |
-| **React Components**      | 50+                                  |
-| **Custom Hooks**          | 12+                                  |
+| **Frontend Pages**        | 30+ (including marketing pages)      |
+| **React Components**      | 60+ (with animated UI components)    |
+| **Custom Hooks**          | 15+                                  |
 | **API Endpoints**         | 92+                                  |
 | **Database Entities**     | 19+                                  |
 | **Background Workers**    | 7 (with DLQ + Refill alerts)         |
@@ -56,6 +104,8 @@
 | **Swagger Response DTOs** | 6 (Login, Token, User, Error, etc)   |
 | **i18n Languages**        | 2 (English, French)                  |
 | **Backup Scripts**        | 3 (monitor, test, create)            |
+| **CSS Animation Classes** | 20+ (in globals.css)                 |
+| **Environment Profiles**  | 2 (local.env, cloud.env)             |
 
 ---
 
@@ -110,7 +160,7 @@
 | **Forms** | React Hook Form + Zod + @hookform/resolvers | Form validation with schemas |
 | **Real-time** | Socket.io-client | WebSocket connection to API |
 | **Chat UI** | stream-chat-react | Family messaging interface |
-| **Animations** | Framer Motion | Page transitions & micro-interactions |
+| **Animations** | Framer Motion + CSS | Page transitions, hover effects, GPU-accelerated |
 | **PWA** | Service Worker + manifest.json | Installable app with shortcuts, share target |
 | **Offline Storage** | LocalForage (IndexedDB) | Offline-first data caching |
 | **Background Sync** | Service Worker Sync API | Queue offline actions for retry |
