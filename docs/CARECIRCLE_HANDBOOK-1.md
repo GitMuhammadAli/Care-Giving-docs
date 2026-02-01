@@ -1,9 +1,11 @@
 # CareCircle: The Only Guide You Need
 
-**Version:** 1.0
-**Last Updated:** 2026-01-14
+**Version:** 1.1
+**Last Updated:** 2026-01-30
 **Audience:** Engineers, DevOps, Technical Leadership
 **Status:** Production-Ready System
+
+> 📚 **New!** For deep-dive conceptual documentation, see [`docs/tech-stack/`](tech-stack/README.md)
 
 ---
 

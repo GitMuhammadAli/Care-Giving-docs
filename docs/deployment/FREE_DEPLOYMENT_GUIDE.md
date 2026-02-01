@@ -1,11 +1,60 @@
 # 🆓 CareCircle Free Deployment Guide
 ## Complete Free-Tier Production Deployment (100% Cost: $0/month)
 
-**Document Version**: 1.0
-**Last Updated**: January 15, 2026
+**Document Version**: 1.1
+**Last Updated**: January 31, 2026
 **Total Monthly Cost**: **$0.00**
 **Target Scale**: 1K-5K active families (expandable)
 **Suitable For**: Startups, MVPs, Side Projects, Learning
+
+---
+
+## ⚡ TL;DR - Deploy Tonight (90 Minutes)
+
+**In a hurry?** Use our condensed guide: **[QUICK_DEPLOY.md](./QUICK_DEPLOY.md)**
+
+### Speed Run Checklist
+
+```
+□ Sign up: Vercel, Render, Neon, Upstash, Cloudinary (20 min)
+□ Create Neon database, run migrations (10 min)
+□ Create Upstash Redis (5 min)
+□ Deploy API to Render with env vars (15 min)
+□ Deploy Web to Vercel with env vars (15 min)
+□ Setup UptimeRobot keep-alive (10 min)
+□ Verify everything works (15 min)
+```
+
+### Essential Links
+
+| Service | Dashboard | Docs |
+|---------|-----------|------|
+| Vercel | [vercel.com/dashboard](https://vercel.com/dashboard) | [docs](https://vercel.com/docs) |
+| Render | [dashboard.render.com](https://dashboard.render.com) | [docs](https://render.com/docs) |
+| Neon | [console.neon.tech](https://console.neon.tech) | [docs](https://neon.tech/docs) |
+| Upstash | [console.upstash.com](https://console.upstash.com) | [docs](https://upstash.com/docs) |
+
+### Quick Environment Variables
+
+```bash
+# Generate JWT secrets
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Essential vars for Render (API)
+NODE_ENV=production
+DATABASE_URL=postgresql://...@neon.tech/neondb?sslmode=require
+REDIS_HOST=xxx.upstash.io
+REDIS_PORT=6379
+REDIS_TLS=true
+JWT_SECRET=your-generated-secret
+FRONTEND_URL=https://your-app.vercel.app
+
+# Essential vars for Vercel (Web)
+NEXT_PUBLIC_API_URL=https://your-api.onrender.com/api/v1
+NEXT_PUBLIC_WS_URL=https://your-api.onrender.com
+```
+
+**👉 For detailed step-by-step instructions, continue reading below or use [QUICK_DEPLOY.md](./QUICK_DEPLOY.md)**
 
 ---
 

@@ -2464,9 +2464,11 @@ export default function FamilyChat() {
 
 **Where to Find Help:**
 - This handbook (you're reading it)
+- [`docs/tech-stack/`](tech-stack/README.md) (conceptual documentation for all technologies)
+- [`docs/features/COMPLETE_FEATURES_IMPLEMENTATION.md`](features/COMPLETE_FEATURES_IMPLEMENTATION.md) (feature implementation status)
+- [`docs/PRODUCTION_INFRASTRUCTURE_COMPLETE.md`](PRODUCTION_INFRASTRUCTURE_COMPLETE.md) (infrastructure and workers)
 - `docs/guides/PROJECT_OVERVIEW.md` (high-level overview)
 - `docs/QA_TEST_REPORT.md` (QA smoke test results)
-- `DOCKER_DEPLOYMENT.md` (Docker deployment details)
 - Swagger docs: `http://localhost:3001/api`
 
 **Final Reminder:** This is a living document. Treat it as code—update it alongside feature changes. A stale handbook is worse than no handbook.
@@ -2475,6 +2477,8 @@ export default function FamilyChat() {
 
 **End of Handbook**
 
-**Version:** 1.0
-**Last Updated:** 2026-01-14
-**Next Review:** 2026-04-14 (quarterly)
+**Version:** 1.1
+**Last Updated:** 2026-01-30
+**Next Review:** 2026-04-30 (quarterly)
+
+> 📚 For conceptual deep-dives, see [`docs/tech-stack/`](tech-stack/README.md)

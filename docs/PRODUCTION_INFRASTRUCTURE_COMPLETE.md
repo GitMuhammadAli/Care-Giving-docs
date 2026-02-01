@@ -34,6 +34,218 @@
 
 ---
 
+## 🛠️ DevOps Enhancements (Phase A & B) - January 31, 2026
+
+### Overview
+
+Comprehensive DevOps enhancements for production deployment readiness:
+
+| Category | Files Added/Modified | Purpose |
+|----------|---------------------|---------|
+| **CI/CD Workflows** | 5 workflows | Automated testing, security, deployment |
+| **Docker Config** | 4 files | Build optimization, dev tools, testing |
+| **K8s Updates** | 1 file | Worker health probes |
+| **Environment System** | 8 templates | Documented, version-controlled configs |
+| **Developer Experience** | 4 files | One-command setup, unified commands |
+| **Documentation** | 4 guides | Runbooks, deployment guides |
+
+---
+
+### CI/CD Workflows (`.github/workflows/`)
+
+#### Enhanced `ci.yml`
+```yaml
+Jobs:
+  - lint          # ESLint + type checking (parallel)
+  - security      # pnpm audit (parallel)
+  - test          # Tests with coverage, PostgreSQL/Redis services
+  - build         # Build all packages, verify artifacts
+  - docker-build  # Docker build test on PRs (with caching)
+```
+
+**Features Added:**
+- pnpm store caching for faster builds
+- Test coverage reporting with artifact upload
+- Security audit (continues on warnings, fails on critical)
+- Docker build verification on pull requests
+- Concurrency control (cancels in-progress runs)
+
+#### New `pr-checks.yml`
+```yaml
+Checks:
+  - PR title validation (conventional commits)
+  - Branch naming (feature/, fix/, hotfix/, etc.)
+  - PR size warning (>500 lines)
+  - Sensitive file detection (.env, private keys)
+  - Lock file consistency check
+```
+
+#### New `security.yml` (Weekly)
+```yaml
+Scans:
+  - Dependency audit (pnpm audit)
+  - CodeQL analysis (JavaScript/TypeScript)
+  - TruffleHog secret scanning
+  - Trivy Docker image vulnerability scan
+  - Auto-creates GitHub issue on failure
+```
+
+---
+
+### Docker Configuration
+
+#### `.dockerignore` (New)
+Optimizes Docker build context:
+```
+Excluded: node_modules, .git, docs, tests, coverage, IDE files
+Result: Faster builds, smaller context uploads
+```
+
+#### `docker-compose.override.yml` (New)
+Local development tools:
+```yaml
+Services:
+  - mailhog     # Email testing UI (localhost:8025)
+  - adminer     # Database GUI (localhost:8080)
+  - redis-commander  # Redis GUI (localhost:8081)
+```
+
+#### `docker-compose.test.yml` (New)
+CI/CD testing environment:
+```yaml
+Features:
+  - Isolated network (carecircle-test)
+  - tmpfs for PostgreSQL (fast, no persistence)
+  - Different ports (5433, 6380, 5673)
+  - Quick healthchecks (2s intervals)
+```
+
+#### `docker-compose.prod.yml` (Enhanced)
+Production-ready configuration:
+```yaml
+Additions:
+  - workers service (background jobs)
+  - Health checks on ALL services
+  - Resource limits (CPU/memory)
+  - Logging configuration (json-file, max-size)
+  - Proper environment variable passthrough
+```
+
+---
+
+### Kubernetes Updates
+
+#### `k8s/workers-deployment.yaml` (Enhanced)
+```yaml
+Added:
+  livenessProbe:
+    path: /health, port: 3002
+    initialDelaySeconds: 30, periodSeconds: 30
+  
+  readinessProbe:
+    path: /ready, port: 3002
+    initialDelaySeconds: 10, periodSeconds: 10
+  
+  startupProbe:
+    path: /health, port: 3002
+    failureThreshold: 30 (allows 150s startup)
+```
+
+---
+
+### Environment System (`env/`)
+
+#### Template Files
+| File | Purpose |
+|------|---------|
+| `base.env.example` | Shared config with documented placeholders |
+| `local.env.example` | Local Docker services (safe defaults) |
+| `cloud.env.example` | Cloud services (Neon, Upstash, CloudAMQP) |
+| `prod.env.example` | Production template (security-hardened) |
+| `test.env` | CI/CD testing (safe to commit) |
+
+#### Environment Switching
+```bash
+# Auto-detect (checks if Docker services running)
+pnpm env:auto
+
+# Force local profile
+pnpm env:local  # or: .\scripts\use-local.ps1
+
+# Force cloud profile
+pnpm env:cloud  # or: .\scripts\use-cloud.ps1
+```
+
+---
+
+### Developer Experience
+
+#### `Makefile` (New)
+Unified commands for development:
+```makefile
+make setup      # First-time setup (install + docker + db)
+make dev        # Start all dev servers
+make test       # Run tests
+make lint       # Run linting
+make db-migrate # Run database migrations
+make db-studio  # Open Prisma Studio
+make logs       # Docker compose logs
+make clean      # Clean build artifacts
+make docker-clean  # Prune Docker resources
+```
+
+#### Setup Scripts (New)
+```bash
+# Windows
+.\scripts\setup.ps1
+
+# macOS/Linux
+./scripts/setup.sh
+
+# What it does:
+# 1. Check prerequisites (Node, pnpm, Docker)
+# 2. Install dependencies
+# 3. Start Docker services
+# 4. Generate Prisma client
+# 5. Push database schema
+```
+
+#### Pre-Commit Hook (New)
+```bash
+# Install
+cp scripts/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+
+# Checks:
+# 1. Secrets detection (passwords, API keys, private keys)
+# 2. Lint staged TypeScript/JavaScript files
+# 3. Branch naming convention validation
+```
+
+---
+
+### New Documentation
+
+| Document | Purpose |
+|----------|---------|
+| `docs/deployment/LOCAL_SETUP.md` | Quick-start for new developers |
+| `docs/deployment/CI_CD_GUIDE.md` | Pipeline documentation, rollback procedures |
+| `docs/runbooks/INCIDENT_RESPONSE.md` | Severity levels, escalation, service procedures |
+| `docs/runbooks/COMMON_ISSUES.md` | Troubleshooting FAQ |
+
+---
+
+### Updated `.gitignore`
+
+```gitignore
+# Now allows tracking of example files:
+!.env.example
+!.env.*.example
+!env/*.env.example
+```
+
+---
+
 ## 🎨 Latest Updates (January 29, 2026) - UI & Developer Experience
 
 ### UI Animations & Visual Enhancements
@@ -2752,48 +2964,163 @@ C:\Ali\Pro\Care-Giving\
 
 ---
 
-## 🔄 Background Workers (7 Workers)
+## 🔄 Background Workers (6 Workers)
 
 All workers use **BullMQ** with Redis for reliable job processing.
 
+**Location:** `apps/workers/src/`
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    CareCircle Workers                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────┐    ┌─────────────────────────────────────┐    │
+│  │  Scheduler  │───▶│           Redis (BullMQ)            │    │
+│  │ (Cron Jobs) │    │                                     │    │
+│  └─────────────┘    │  Queues:                            │    │
+│                     │  ├── medication-reminders           │    │
+│                     │  ├── appointment-reminders          │    │
+│  ┌─────────────┐    │  ├── shift-reminders                │    │
+│  │   Health    │    │  ├── refill-alerts                  │    │
+│  │   Server    │    │  ├── notifications                  │    │
+│  │  :3002      │    │  └── dead-letter-queue              │    │
+│  └─────────────┘    └─────────────────────────────────────┘    │
+│                              │                                  │
+│         ┌────────────────────┼────────────────────┐            │
+│         ▼                    ▼                    ▼            │
+│  ┌─────────────┐    ┌─────────────┐      ┌─────────────┐       │
+│  │  Medication │    │ Appointment │      │    Shift    │       │
+│  │   Reminder  │    │   Reminder  │      │   Reminder  │       │
+│  │   Worker    │    │   Worker    │      │   Worker    │       │
+│  └─────────────┘    └─────────────┘      └─────────────┘       │
+│         │                    │                    │            │
+│         ▼                    ▼                    ▼            │
+│  ┌─────────────┐    ┌─────────────┐      ┌─────────────┐       │
+│  │   Refill    │    │ Notification│      │ Dead Letter │       │
+│  │   Alert     │    │   Worker    │      │   Worker    │       │
+│  │   Worker    │    │             │      │             │       │
+│  └─────────────┘    └─────────────┘      └─────────────┘       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 ### Active Workers ✅
 
-1. **Medication Reminder Worker**
+| Worker | Queue Name | Purpose | Reminder Times |
+|--------|-----------|---------|----------------|
+| **Medication Reminder** | `medication-reminders` | Send reminders before scheduled doses | 30, 15, 5, 0 min before |
+| **Appointment Reminder** | `appointment-reminders` | Notify about upcoming appointments | 24h, 1h, 30min before |
+| **Shift Reminder** | `shift-reminders` | Alert caregivers before shifts | 60, 15 min before |
+| **Refill Alert** | `refill-alerts` | Warn when medication supply is low | Hourly check |
+| **Notification** | `notifications` | Deliver push/email/SMS notifications | Immediate |
+| **Dead Letter** | `dead-letter-queue` | Handle and log failed jobs | On failure |
 
-   - Schedules daily medication reminders
-   - Sends notifications 30 minutes before dose time
-   - Tracks adherence
+### Worker Details
 
-2. **Appointment Reminder Worker**
+1. **Medication Reminder Worker** (`medication-reminder.worker.ts`)
+   - Checks medications with scheduled times
+   - Skips if medication already logged for that time
+   - Uses idempotent job IDs (`med-{id}-{date}-{time}-{minutes}`)
 
-   - Sends reminders 24 hours before appointments
-   - Includes appointment details and location
+2. **Appointment Reminder Worker** (`appointment-reminder.worker.ts`)
+   - Queries upcoming appointments
+   - Sends to all family members
+   - Respects appointment status (SCHEDULED, CONFIRMED)
 
-3. **Shift Reminder Worker**
+3. **Shift Reminder Worker** (`shift-reminder.worker.ts`)
+   - Notifies assigned caregiver
+   - Includes care recipient info
+   - Timezone-aware scheduling
 
-   - Notifies caregivers before their shifts
-   - Includes handoff notes
+4. **Refill Alert Worker** (`refill-alert.worker.ts`)
+   - Runs hourly check (at minute 0)
+   - Compares `currentSupply` vs `refillAt` threshold
+   - Daily job ID prevents duplicate alerts
 
-4. **Notification Worker**
+5. **Notification Worker** (`notification.worker.ts`)
+   - Web Push via VAPID keys
+   - Email via Nodemailer
+   - SMS via Twilio (optional)
 
-   - Processes in-app notifications
-   - Sends real-time updates via WebSocket
-   - Web Push notifications (VAPID keys needed)
+6. **Dead Letter Queue Worker** (`dead-letter.worker.ts`)
+   - Captures permanently failed jobs
+   - Logs for debugging
+   - Slack webhook ready (optional)
 
-5. **Refill Alert Worker** ✨ **NEW**
+### Scheduler Configuration
 
-   - Monitors medication supply levels
-   - Automatically alerts when refill needed
-   - Notifies all family members
+**File:** `apps/workers/src/scheduler.ts`
 
-6. **Dead Letter Queue Worker**
+```typescript
+// Reminder windows (minutes before event)
+medicationReminderMinutes: [30, 15, 5, 0]
+appointmentReminderMinutes: [1440, 60, 30]  // 24h, 1h, 30min
+shiftReminderMinutes: [60, 15]              // 1h, 15min
 
-   - Handles failed jobs
-   - Slack alerts ready (webhook needed)
-   - Logs failures for debugging
+// Check interval
+schedulerIntervalMs: 60 * 1000  // Every minute
+```
 
-7. **Generic Job Worker**
-   - Handles miscellaneous background tasks
+### Health Check Endpoints
+
+Workers expose health endpoints on **port 3002**:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Full health check (Redis, DB, all workers) |
+| `GET /healthz` | Alias for /health |
+| `GET /ready` | Readiness check (Redis + DB only) |
+
+**Health Response Example:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-01-30T10:00:00.000Z",
+  "uptime": 3600,
+  "checks": {
+    "redis": true,
+    "database": true,
+    "workers": [
+      { "name": "medication-reminder", "running": true },
+      { "name": "appointment-reminder", "running": true },
+      { "name": "shift-reminder", "running": true },
+      { "name": "notification", "running": true },
+      { "name": "refill-alert", "running": true },
+      { "name": "dead-letter", "running": true }
+    ]
+  }
+}
+```
+
+### Running Workers
+
+**Development:**
+```bash
+pnpm --filter @carecircle/workers dev
+```
+
+**Production:**
+```bash
+pnpm --filter @carecircle/workers build
+pnpm --filter @carecircle/workers start
+```
+
+**Docker:**
+```bash
+docker build -f apps/workers/Dockerfile -t carecircle-workers .
+docker run -p 3002:3002 carecircle-workers
+```
+
+### Graceful Shutdown
+
+Workers handle shutdown signals properly:
+- `SIGTERM`, `SIGINT` - Standard shutdown signals
+- `SIGBREAK` - Windows Ctrl+Break
+- 30-second timeout for job completion
+- Closes Redis, Prisma, and health server
 
 ---
 
@@ -2859,6 +3186,172 @@ All workers use **BullMQ** with Redis for reliable job processing.
 - **CI/CD**: $0 (GitHub Actions free for public repos)
 
 **Total Savings**: **~$450/month** 💰
+
+---
+
+## 🔐 Environment Variables Reference
+
+### Environment File Structure
+
+CareCircle uses a layered environment configuration:
+
+```
+env/
+├── base.env    # Shared config (non-secret defaults)
+├── local.env   # Local development (Docker services)
+└── cloud.env   # Cloud deployment (Neon, Upstash, CloudAMQP)
+```
+
+**Usage:**
+```bash
+# Switch to local profile
+pnpm env:local  # Merges base.env + local.env → .env
+
+# Switch to cloud profile  
+pnpm env:cloud  # Merges base.env + cloud.env → .env
+
+# Auto-detect (checks if local services are running)
+pnpm env:auto
+```
+
+### Required Environment Variables
+
+#### Application Core
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `NODE_ENV` | Environment mode | `development` | `production` |
+| `PORT` | API server port | `4000` | `4000` |
+| `API_PREFIX` | API route prefix | `api/v1` | `api/v1` |
+| `FRONTEND_URL` | Frontend app URL | - | `https://carecircle.app` |
+| `LOG_LEVEL` | Logging level | `debug` | `info` |
+
+#### Database (PostgreSQL)
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `DATABASE_URL` | Prisma connection string | ✅ | `postgresql://user:pass@host:5432/db` |
+| `DB_HOST` | Database host | ✅ | `localhost` / `neon.tech` |
+| `DB_PORT` | Database port | ✅ | `5432` |
+| `DB_USERNAME` | Database user | ✅ | `postgres` |
+| `DB_PASSWORD` | Database password | ✅ | `secret` |
+| `DB_DATABASE` | Database name | ✅ | `carecircle` |
+| `DB_SSL` | Enable SSL | ❌ | `true` (cloud) / `false` (local) |
+
+#### Redis (Cache & Queues)
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `REDIS_HOST` | Redis host | ✅ | `localhost` / `upstash.io` |
+| `REDIS_PORT` | Redis port | ✅ | `6379` |
+| `REDIS_PASSWORD` | Redis password | ❌ | `secret` |
+| `REDIS_TLS` | Enable TLS | ❌ | `true` (cloud) / `false` (local) |
+
+#### RabbitMQ (Message Queue)
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `AMQP_URL` | Full connection URL | ✅ | `amqp://guest:guest@localhost:5672` |
+| `AMQP_HOST` | RabbitMQ host | ❌ | `localhost` |
+| `AMQP_USER` | Username | ❌ | `guest` |
+| `AMQP_PASSWORD` | Password | ❌ | `guest` |
+| `AMQP_TLS` | Enable TLS | ❌ | `true` (cloud) |
+
+#### JWT Authentication
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `JWT_SECRET` | Access token secret (32+ chars) | ✅ | `your-super-secret-key...` |
+| `JWT_REFRESH_SECRET` | Refresh token secret (32+ chars) | ✅ | `your-refresh-secret...` |
+| `JWT_EXPIRES_IN` | Access token TTL | ❌ | `15m` |
+| `JWT_REFRESH_EXPIRES_IN` | Refresh token TTL | ❌ | `7d` |
+
+#### Security
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `ENCRYPTION_KEY` | AES-256 key (32 chars hex) | ✅ | `0123456789abcdef...` |
+| `OTP_EXPIRES_IN` | OTP expiry in seconds | ❌ | `300` |
+| `MAX_LOGIN_ATTEMPTS` | Max failed logins | ❌ | `5` |
+| `LOCKOUT_DURATION` | Lockout time in seconds | ❌ | `1800` |
+
+#### Web Push Notifications (VAPID)
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Public VAPID key | ✅ | `BOoJeD...` |
+| `VAPID_PRIVATE_KEY` | Private VAPID key | ✅ | `J9UfQl...` |
+| `VAPID_SUBJECT` | Contact email | ❌ | `mailto:admin@carecircle.com` |
+
+**Generate VAPID keys:**
+```bash
+npx web-push generate-vapid-keys
+```
+
+#### File Storage (Cloudinary)
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `STORAGE_PROVIDER` | Storage backend | ❌ | `cloudinary` |
+| `CLOUDINARY_CLOUD_NAME` | Cloud name | ✅ | `dnswzbhpq` |
+| `CLOUDINARY_API_KEY` | API key | ✅ | `884945...` |
+| `CLOUDINARY_API_SECRET` | API secret | ✅ | `Oj_1NP...` |
+| `CLOUDINARY_FOLDER` | Upload folder | ❌ | `carecircle` |
+
+#### Email Service
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `MAIL_PROVIDER` | Email provider | ❌ | `mailtrap` / `resend` |
+| `MAILTRAP_HOST` | SMTP host | ✅* | `sandbox.smtp.mailtrap.io` |
+| `MAILTRAP_PORT` | SMTP port | ✅* | `2525` |
+| `MAILTRAP_USER` | SMTP user | ✅* | `username` |
+| `MAILTRAP_PASS` | SMTP password | ✅* | `password` |
+| `MAIL_FROM` | Sender email | ❌ | `noreply@carecircle.com` |
+| `MAIL_FROM_NAME` | Sender name | ❌ | `CareCircle` |
+
+#### Chat (Stream Chat)
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `NEXT_PUBLIC_STREAM_API_KEY` | Stream API key | ✅ | `rju7nm...` |
+| `STREAM_API_SECRET` | Stream secret | ✅ | `qz7b75...` |
+
+#### Workers Configuration
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `WORKER_CONCURRENCY` | Jobs per worker | `10` | `10` |
+| `JOB_ATTEMPTS` | Max retry attempts | `5` | `5` |
+| `JOB_BACKOFF_DELAY` | Initial retry delay (ms) | `1000` | `1000` |
+| `JOB_TIMEOUT` | Job timeout (ms) | `30000` | `30000` |
+| `HEALTH_PORT` | Health check port | `4001` | `3002` |
+
+#### Optional Services
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `TWILIO_ACCOUNT_SID` | Twilio SID (SMS) | `AC...` |
+| `TWILIO_AUTH_TOKEN` | Twilio token | `token` |
+| `TWILIO_PHONE_NUMBER` | Twilio number | `+1234567890` |
+| `SLACK_DLQ_WEBHOOK` | DLQ alerts | `https://hooks.slack.com/...` |
+
+### Cloud Provider Setup
+
+#### Neon (PostgreSQL)
+1. Create account at [neon.tech](https://neon.tech)
+2. Create project → Copy connection string
+3. Set `DATABASE_URL` with `?sslmode=require`
+
+#### Upstash (Redis)
+1. Create account at [upstash.com](https://upstash.com)
+2. Create Redis database → Copy credentials
+3. Set `REDIS_HOST`, `REDIS_PASSWORD`, `REDIS_TLS=true`
+
+#### CloudAMQP (RabbitMQ)
+1. Create account at [cloudamqp.com](https://cloudamqp.com)
+2. Create instance (Little Lemur = free)
+3. Copy AMQP URL → Set `AMQP_URL`
 
 ---
 

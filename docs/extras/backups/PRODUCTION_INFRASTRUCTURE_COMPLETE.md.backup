@@ -1,0 +1,1065 @@
+# 🏗️ CareCircle Production Infrastructure - Complete Reference
+
+**Version:** 2.0.0  
+**Last Updated:** January 15, 2026  
+**Status:** Production-Ready Enterprise System
+
+---
+
+## 📊 Project Statistics
+
+| Metric                  | Count                                |
+| ----------------------- | ------------------------------------ |
+| **Total Apps**          | 4 (API, Web, Workers, Pixel-Perfect) |
+| **API Modules**         | 15+                                  |
+| **Frontend Pages**      | 25+                                  |
+| **React Components**    | 50+                                  |
+| **Custom Hooks**        | 12+                                  |
+| **API Endpoints**       | 60+                                  |
+| **Database Entities**   | 19+                                  |
+| **Background Workers**  | 4                                    |
+| **Test Files**          | 9+ (Unit, E2E, Security, Load)       |
+| **Documentation Files** | 30+                                  |
+| **i18n Languages**      | 2 (English, French)                  |
+
+---
+
+## 🗂️ Complete Project Structure
+
+```
+C:\Ali\Pro\Care-Giving\
+│
+├── 📁 apps/
+│   ├── 📁 api/                          # NestJS Backend API
+│   ├── 📁 web/                          # Next.js Frontend
+│   ├── 📁 workers/                      # Background Job Workers
+│   └── 📁 pixel-perfect/                # Vite + React Design System
+│
+├── 📁 packages/
+│   └── 📁 database/                     # Shared Prisma Schema
+│
+├── 📁 docs/                             # Documentation
+├── 📁 env/                              # Environment Profiles
+├── 📁 k8s/                              # Kubernetes Manifests
+├── 📁 nginx/                            # Nginx Configuration
+├── 📁 scripts/                          # Automation Scripts
+│
+├── 📄 docker-compose.yml                # Dev Infrastructure
+├── 📄 docker-compose.prod.yml           # Production Deployment
+├── 📄 nginx.conf                        # Root Nginx Config
+├── 📄 turbo.json                        # Turborepo Config
+├── 📄 pnpm-workspace.yaml               # Workspace Config
+├── 📄 rabbitmq-plugins.conf             # RabbitMQ Plugins
+└── 📄 package.json                      # Root Package
+```
+
+---
+
+## 🚀 Quick Access URLs (Development)
+
+| Service             | URL                       | Credentials       |
+| ------------------- | ------------------------- | ----------------- |
+| **Web App**         | http://localhost:3000     | -                 |
+| **API Server**      | http://localhost:3001     | -                 |
+| **Swagger Docs**    | http://localhost:3001/api | -                 |
+| **Mailpit (Email)** | http://localhost:8025     | -                 |
+| **RabbitMQ Admin**  | http://localhost:15672    | guest/guest       |
+| **PostgreSQL**      | localhost:5432            | postgres/postgres |
+| **Redis**           | localhost:6379            | -                 |
+
+---
+
+# 📱 APPS
+
+## 1. API Backend (`apps/api/`)
+
+### 1.1 Module Structure
+
+| Module               | Files | Location                         | Description                          |
+| -------------------- | ----- | -------------------------------- | ------------------------------------ |
+| **Auth**             | 16    | `apps/api/src/auth/`             | JWT, login, register, password reset |
+| **User**             | 13    | `apps/api/src/user/`             | User management, sessions            |
+| **Family**           | 18    | `apps/api/src/family/`           | Family CRUD, invitations, roles      |
+| **Care Recipient**   | 12    | `apps/api/src/care-recipient/`   | Care recipients management           |
+| **Medications**      | 15    | `apps/api/src/medications/`      | Medication tracking & logging        |
+| **Appointments**     | 12    | `apps/api/src/appointments/`     | Calendar & scheduling                |
+| **Documents**        | 11    | `apps/api/src/documents/`        | Document vault                       |
+| **Emergency**        | 11    | `apps/api/src/emergency/`        | Emergency alerts                     |
+| **Timeline**         | 10    | `apps/api/src/timeline/`         | Health timeline                      |
+| **Caregiver Shifts** | 11    | `apps/api/src/caregiver-shifts/` | Shift scheduling                     |
+| **Notifications**    | 12    | `apps/api/src/notifications/`    | Push notifications                   |
+| **Gateway**          | 4     | `apps/api/src/gateway/`          | WebSocket server                     |
+| **Events**           | 12    | `apps/api/src/events/`           | Event-driven architecture            |
+| **Chat**             | 3     | `apps/api/src/chat/`             | Stream Chat integration              |
+| **System**           | 43    | `apps/api/src/system/`           | Guards, filters, decorators, helpers |
+
+### 1.2 System Utilities (`apps/api/src/system/`)
+
+#### Guards (8 files)
+
+| Guard                    | Location        | Purpose                  |
+| ------------------------ | --------------- | ------------------------ |
+| `jwt-auth.guard.ts`      | `system/guard/` | JWT token validation     |
+| `roles.guard.ts`         | `system/guard/` | RBAC enforcement         |
+| `family-access.guard.ts` | `system/guard/` | Family-scoped access     |
+| `permissions.guard.ts`   | `system/guard/` | Fine-grained permissions |
+| `ip.guard.ts`            | `system/guard/` | IP whitelist/blacklist   |
+| `throttle.guard.ts`      | `system/guard/` | Rate limiting            |
+
+#### Decorators (6 files)
+
+| Decorator         | Location                                      | Purpose                    |
+| ----------------- | --------------------------------------------- | -------------------------- |
+| `@CurrentUser()`  | `system/decorator/current-user.decorator.ts`  | Extract authenticated user |
+| `@Roles()`        | `system/decorator/roles.decorator.ts`         | Role-based access          |
+| `@Public()`       | `system/decorator/public.decorator.ts`        | Mark public endpoints      |
+| `@Permissions()`  | `system/decorator/permissions.decorator.ts`   | Permission-based access    |
+| `@FamilyAccess()` | `system/decorator/family-access.decorator.ts` | Family context             |
+
+#### Helpers (6 files)
+
+| Helper              | Location         | Purpose                       |
+| ------------------- | ---------------- | ----------------------------- |
+| `otp.helper.ts`     | `system/helper/` | OTP generation & verification |
+| `date.helper.ts`    | `system/helper/` | Date formatting & timezone    |
+| `lock.helper.ts`    | `system/helper/` | Distributed locking (Redis)   |
+| `context.helper.ts` | `system/helper/` | Request context utilities     |
+| `env.helper.ts`     | `system/helper/` | Environment variable parsing  |
+
+#### Validators (3 files)
+
+| Validator                | Location            | Purpose                   |
+| ------------------------ | ------------------- | ------------------------- |
+| `is-exists.validator.ts` | `system/validator/` | Check entity exists in DB |
+| `is-unique.validator.ts` | `system/validator/` | Check field uniqueness    |
+
+#### Filters (3 files)
+
+| Filter                           | Location         | Purpose               |
+| -------------------------------- | ---------------- | --------------------- |
+| `http-exception.filter.ts`       | `system/filter/` | HTTP error formatting |
+| `validation-exception.filter.ts` | `system/filter/` | DTO validation errors |
+
+#### Interceptors (4 files)
+
+| Interceptor                | Location              | Purpose                  |
+| -------------------------- | --------------------- | ------------------------ |
+| `logging.interceptor.ts`   | `system/interceptor/` | Request/response logging |
+| `audit.interceptor.ts`     | `system/interceptor/` | Audit trail              |
+| `transform.interceptor.ts` | `system/interceptor/` | Response transformation  |
+| `timeout.interceptor.ts`   | `system/interceptor/` | Request timeout          |
+
+### 1.3 Storage Providers (`apps/api/src/system/module/storage/`)
+
+| Provider                | Location     | Purpose                   |
+| ----------------------- | ------------ | ------------------------- |
+| `cloudinary.service.ts` | `providers/` | Cloudinary uploads        |
+| `s3.service.ts`         | `providers/` | AWS S3 uploads            |
+| `storage.service.ts`    | `.`          | Unified storage interface |
+
+### 1.4 Mail Module (`apps/api/src/system/module/mail/`)
+
+| File                | Purpose                               |
+| ------------------- | ------------------------------------- |
+| `mail.service.ts`   | Email sending (Mailtrap/Resend/Brevo) |
+| `mail.processor.ts` | Async email queue processing          |
+| `mail.module.ts`    | Module configuration                  |
+
+### 1.5 AWS Module (`apps/api/src/system/module/aws/`)
+
+| File                | Purpose                                |
+| ------------------- | -------------------------------------- |
+| `aws-s3.service.ts` | S3 operations (upload, presigned URLs) |
+| `aws.module.ts`     | AWS SDK configuration                  |
+
+### 1.6 Internationalization (`apps/api/src/i18n/`)
+
+| Language    | Files | Location   |
+| ----------- | ----- | ---------- |
+| **English** | 4     | `i18n/en/` |
+| **French**  | 4     | `i18n/fr/` |
+
+**Translation Files:**
+
+- `auth.json` - Authentication messages
+- `common.json` - Common UI strings
+- `family.json` - Family-related messages
+- `validation.json` - Validation error messages
+
+### 1.7 Database (`apps/api/src/database/`)
+
+| File                        | Purpose                     |
+| --------------------------- | --------------------------- |
+| `typeorm-config.service.ts` | TypeORM configuration       |
+| `typeorm-config.ts`         | Static config               |
+| `data-source.ts`            | TypeORM DataSource          |
+| `migrations/*.ts`           | Schema migrations (3 files) |
+
+### 1.8 Entry Points
+
+| File            | Location        | Purpose                            |
+| --------------- | --------------- | ---------------------------------- |
+| `main.ts`       | `apps/api/src/` | Bootstrap app, Swagger, validation |
+| `app.module.ts` | `apps/api/src/` | Root module imports                |
+| `swagger.ts`    | `apps/api/src/` | Swagger/OpenAPI configuration      |
+
+---
+
+## 2. Web Frontend (`apps/web/`)
+
+### 2.1 Page Structure (`apps/web/src/app/`)
+
+#### Auth Pages (`(auth)/`) - Public
+
+| Page            | Route                    | Location                                |
+| --------------- | ------------------------ | --------------------------------------- |
+| Login           | `/login`                 | `(auth)/login/page.tsx`                 |
+| Register        | `/register`              | `(auth)/register/page.tsx`              |
+| Forgot Password | `/forgot-password`       | `(auth)/forgot-password/page.tsx`       |
+| Reset Password  | `/reset-password`        | `(auth)/reset-password/page.tsx`        |
+| Verify Email    | `/verify-email`          | `(auth)/verify-email/page.tsx`          |
+| Accept Invite   | `/accept-invite/[token]` | `(auth)/accept-invite/[token]/page.tsx` |
+
+#### App Pages (`(app)/`) - Protected
+
+| Page           | Route                   | Location                              |
+| -------------- | ----------------------- | ------------------------------------- |
+| Medications    | `/medications`          | `(app)/medications/page.tsx`          |
+| Calendar       | `/calendar`             | `(app)/calendar/page.tsx`             |
+| Caregivers     | `/caregivers`           | `(app)/caregivers/page.tsx`           |
+| Chat           | `/chat`                 | `(app)/chat/page.tsx`                 |
+| Documents      | `/documents`            | `(app)/documents/page.tsx`            |
+| Emergency      | `/emergency`            | `(app)/emergency/page.tsx`            |
+| Family         | `/family`               | `(app)/family/page.tsx`               |
+| Settings       | `/settings`             | `(app)/settings/page.tsx`             |
+| Timeline       | `/timeline`             | `(app)/timeline/page.tsx`             |
+| Onboarding     | `/onboarding`           | `(app)/onboarding/page.tsx`           |
+| Care Recipient | `/care-recipients/[id]` | `(app)/care-recipients/[id]/page.tsx` |
+
+#### Dashboard (`(dashboard)/`)
+
+| Page      | Route        | Location                         |
+| --------- | ------------ | -------------------------------- |
+| Dashboard | `/dashboard` | `(dashboard)/dashboard/page.tsx` |
+
+#### Marketing Pages (`(marketing)/`)
+
+| Page         | Route           | Location                            |
+| ------------ | --------------- | ----------------------------------- |
+| About        | `/about`        | `(marketing)/about/page.tsx`        |
+| Contact      | `/contact`      | `(marketing)/contact/page.tsx`      |
+| How It Works | `/how-it-works` | `(marketing)/how-it-works/page.tsx` |
+| Journal      | `/journal`      | `(marketing)/journal/page.tsx`      |
+| Pricing      | `/pricing`      | `(marketing)/pricing/page.tsx`      |
+| Stories      | `/stories`      | `(marketing)/stories/page.tsx`      |
+
+#### Other Pages
+
+| Page    | Route      | Location           |
+| ------- | ---------- | ------------------ |
+| Landing | `/`        | `page.tsx`         |
+| Offline | `/offline` | `offline/page.tsx` |
+
+### 2.2 Components (`apps/web/src/components/`)
+
+#### Auth Components (`auth/`)
+
+| Component             | Purpose                     |
+| --------------------- | --------------------------- |
+| `protected-route.tsx` | Auth-required route wrapper |
+| `public-route.tsx`    | Redirect logged-in users    |
+
+#### Care Components (`care/`)
+
+| Component                 | Purpose                  |
+| ------------------------- | ------------------------ |
+| `care-recipient-card.tsx` | Care recipient display   |
+| `emergency-button.tsx`    | Emergency trigger button |
+| `medication-card.tsx`     | Medication display       |
+| `timeline-entry.tsx`      | Timeline item            |
+
+#### Chat Components (`chat/`)
+
+| Component            | Purpose               |
+| -------------------- | --------------------- |
+| `chat-container.tsx` | Chat wrapper          |
+| `family-chat.tsx`    | Family chat interface |
+
+#### Dashboard Components (`dashboard/`)
+
+| Component                    | Purpose            |
+| ---------------------------- | ------------------ |
+| `contacts-directory.tsx`     | Contacts list      |
+| `documents-vault.tsx`        | Document browser   |
+| `emergency-alert-banner.tsx` | Alert display      |
+| `emergency-contacts.tsx`     | Emergency contacts |
+| `family-timezones.tsx`       | Timezone display   |
+| `medication-tracker.tsx`     | Med schedule       |
+
+#### Layout Components (`layout/`)
+
+| Component              | Purpose           |
+| ---------------------- | ----------------- |
+| `app-shell.tsx`        | Main app wrapper  |
+| `dashboard-header.tsx` | Dashboard header  |
+| `footer.tsx`           | Site footer       |
+| `header.tsx`           | Site header       |
+| `mobile-nav.tsx`       | Mobile navigation |
+| `page-header.tsx`      | Page titles       |
+| `sidebar.tsx`          | App sidebar       |
+
+#### Modal Components (`modals/`)
+
+| Component                       | Purpose              |
+| ------------------------------- | -------------------- |
+| `add-appointment-modal.tsx`     | Create appointment   |
+| `add-medication-modal.tsx`      | Add medication       |
+| `add-timeline-entry-modal.tsx`  | Add timeline entry   |
+| `edit-care-recipient-modal.tsx` | Edit care recipient  |
+| `invite-member-modal.tsx`       | Invite family member |
+| `log-medication-modal.tsx`      | Log medication dose  |
+| `upload-document-modal.tsx`     | Upload document      |
+
+#### UI Components (`ui/`)
+
+| Component         | Purpose             |
+| ----------------- | ------------------- |
+| `accordion.tsx`   | Expandable sections |
+| `avatar.tsx`      | User avatars        |
+| `badge.tsx`       | Status badges       |
+| `button.tsx`      | Button variants     |
+| `card.tsx`        | Card container      |
+| `dialog.tsx`      | Dialog/modal        |
+| `empty-state.tsx` | No data state       |
+| `input.tsx`       | Form inputs         |
+| `label.tsx`       | Form labels         |
+| `modal.tsx`       | Modal wrapper       |
+| `select.tsx`      | Select dropdown     |
+| `skeleton.tsx`    | Loading skeleton    |
+| `textarea.tsx`    | Text areas          |
+
+#### Providers (`providers/`)
+
+| Provider                      | Purpose                |
+| ----------------------------- | ---------------------- |
+| `auth-provider.tsx`           | Authentication context |
+| `notification-provider.tsx`   | Notification context   |
+| `query-provider.tsx`          | React Query setup      |
+| `realtime-provider.tsx`       | WebSocket context      |
+| `service-worker-provider.tsx` | PWA registration       |
+| `toast-provider.tsx`          | Toast notifications    |
+
+### 2.3 Hooks (`apps/web/src/hooks/`)
+
+| Hook                        | Purpose                        |
+| --------------------------- | ------------------------------ |
+| `use-auth.ts`               | Authentication state & actions |
+| `use-appointments.ts`       | Appointment data & mutations   |
+| `use-chat.ts`               | Stream Chat integration        |
+| `use-emergency.ts`          | Emergency alerts               |
+| `use-family.ts`             | Family data & operations       |
+| `use-medications.ts`        | Medication tracking            |
+| `use-notifications.ts`      | Notification management        |
+| `use-offline-sync.ts`       | Offline data sync              |
+| `use-push-notifications.ts` | Push subscription              |
+| `use-timeline.ts`           | Timeline entries               |
+| `use-websocket.ts`          | WebSocket connection           |
+
+### 2.4 API Client (`apps/web/src/lib/api/`)
+
+| File                 | Purpose                          |
+| -------------------- | -------------------------------- |
+| `client.ts`          | Axios instance with interceptors |
+| `auth.ts`            | Auth endpoints                   |
+| `appointments.ts`    | Appointment endpoints            |
+| `care-recipients.ts` | Care recipient endpoints         |
+| `documents.ts`       | Document endpoints               |
+| `emergency.ts`       | Emergency endpoints              |
+| `family.ts`          | Family endpoints                 |
+| `medications.ts`     | Medication endpoints             |
+| `notifications.ts`   | Notification endpoints           |
+| `shifts.ts`          | Shift endpoints                  |
+| `timeline.ts`        | Timeline endpoints               |
+
+### 2.5 Utilities (`apps/web/src/lib/`)
+
+| File                    | Purpose                    |
+| ----------------------- | -------------------------- |
+| `websocket.ts`          | Socket.io client singleton |
+| `push-notifications.ts` | Web Push subscription      |
+| `offline-storage.ts`    | IndexedDB offline storage  |
+| `stream-chat.ts`        | Stream Chat helpers        |
+| `utils.ts`              | General utilities          |
+
+### 2.6 PWA Assets (`apps/web/public/`)
+
+| File            | Purpose                        |
+| --------------- | ------------------------------ |
+| `sw.js`         | Service worker (offline, push) |
+| `manifest.json` | PWA manifest                   |
+
+---
+
+## 3. Workers (`apps/workers/`)
+
+### 3.1 Worker Structure
+
+| File           | Location | Purpose              |
+| -------------- | -------- | -------------------- |
+| `index.ts`     | `src/`   | Worker entry point   |
+| `scheduler.ts` | `src/`   | Cron job scheduler   |
+| `config.ts`    | `src/`   | Worker configuration |
+
+### 3.2 Background Workers (`apps/workers/src/workers/`)
+
+| Worker                           | Schedule     | Purpose                   |
+| -------------------------------- | ------------ | ------------------------- |
+| `appointment-reminder.worker.ts` | Daily        | Appointment notifications |
+| `medication-reminder.worker.ts`  | Every 15 min | Medication reminders      |
+| `notification.worker.ts`         | Real-time    | Push delivery             |
+| `shift-reminder.worker.ts`       | Hourly       | Shift alerts              |
+
+---
+
+## 4. Pixel Perfect Design System (`apps/pixel-perfect/`)
+
+A separate Vite + React app for UI components (92 files).
+
+| Category         | Count |
+| ---------------- | ----- |
+| TSX Components   | 85    |
+| TypeScript Files | 5     |
+| CSS Files        | 2     |
+
+**Config Files:**
+
+- `vite.config.ts`
+- `tailwind.config.ts`
+- `components.json`
+- `postcss.config.js`
+
+---
+
+# 🛠️ INFRASTRUCTURE
+
+## 5. Docker Configuration
+
+### 5.1 Development (`docker-compose.yml`)
+
+| Service    | Image                    | Port        | Purpose        |
+| ---------- | ------------------------ | ----------- | -------------- |
+| PostgreSQL | postgres:16              | 5432        | Database       |
+| Redis      | redis:7                  | 6379        | Cache/Sessions |
+| RabbitMQ   | rabbitmq:3.12-management | 5672, 15672 | Message Queue  |
+| Mailpit    | mailpit                  | 8025        | Email Testing  |
+
+### 5.2 Production (`docker-compose.prod.yml`)
+
+| Service    | Replicas | Memory | Purpose         |
+| ---------- | -------- | ------ | --------------- |
+| Nginx      | 1        | 256MB  | Load Balancer   |
+| API        | 4        | 2GB    | Backend         |
+| Web        | 3        | 1GB    | Frontend        |
+| Workers    | 3        | 512MB  | Background Jobs |
+| PostgreSQL | 1        | 4GB    | Database        |
+| Redis      | 1        | 2GB    | Cache           |
+| RabbitMQ   | 1        | 2GB    | Queue           |
+
+### 5.3 Dockerfiles
+
+| App     | Location                  | Features                       |
+| ------- | ------------------------- | ------------------------------ |
+| API     | `apps/api/Dockerfile`     | Multi-stage, non-root user     |
+| Web     | `apps/web/Dockerfile`     | Multi-stage, standalone output |
+| Workers | `apps/workers/Dockerfile` | Multi-stage                    |
+
+---
+
+## 6. Kubernetes (`k8s/`)
+
+| Manifest                  | Purpose                    |
+| ------------------------- | -------------------------- |
+| `namespace.yaml`          | CareCircle namespace       |
+| `config.yaml`             | ConfigMaps & Secrets       |
+| `api-deployment.yaml`     | API pods (3-20 replicas)   |
+| `web-deployment.yaml`     | Web pods (2-10 replicas)   |
+| `workers-deployment.yaml` | Worker pods (2-5 replicas) |
+| `ingress.yaml`            | Ingress with TLS           |
+
+**Features:**
+
+- Horizontal Pod Autoscaling (HPA)
+- Liveness/Readiness probes
+- Resource requests/limits
+- Rolling deployments
+
+---
+
+## 7. Nginx (`nginx/` + `nginx.conf`)
+
+| Feature        | Details                            |
+| -------------- | ---------------------------------- |
+| Load Balancing | `least_conn` algorithm             |
+| Rate Limiting  | 100r/s API, 200r/s Web             |
+| Compression    | Gzip + Brotli level 6              |
+| SSL/TLS        | TLSv1.2 + TLSv1.3, stapling        |
+| Caching        | 1 year (versioned), 7 days (other) |
+| Headers        | HSTS, X-Frame-Options, CSP         |
+| WebSocket      | Upgrade handling                   |
+
+**Files:**
+
+- `nginx.conf` (root)
+- `nginx/nginx.conf`
+- `nginx/conf.d/carecircle.conf`
+
+---
+
+## 8. CI/CD (`.github/workflows/`)
+
+| Workflow                | Trigger      | Purpose                |
+| ----------------------- | ------------ | ---------------------- |
+| `ci.yml`                | Push/PR      | Lint, type-check, test |
+| `deploy-production.yml` | Tag `v*.*.*` | Production deploy      |
+
+**CI Pipeline Steps:**
+
+1. Checkout
+2. Setup Node 18
+3. Install pnpm (cached)
+4. ESLint
+5. TypeScript check
+6. Jest tests (with PostgreSQL/Redis)
+7. Docker build
+8. Push to GHCR
+9. Deploy (on tags)
+
+---
+
+## 9. Scripts (`scripts/`)
+
+| Script            | Platform | Purpose                   |
+| ----------------- | -------- | ------------------------- |
+| `dev.js`          | Node     | Multi-service dev startup |
+| `deploy-prod.sh`  | Unix     | Production deployment     |
+| `deploy-prod.ps1` | Windows  | Production deployment     |
+| `use-local.ps1`   | Windows  | Switch to local env       |
+| `use-cloud.ps1`   | Windows  | Switch to cloud env       |
+
+---
+
+## 10. Environment (`env/`)
+
+| File        | Purpose                                   |
+| ----------- | ----------------------------------------- |
+| `base.env`  | Shared config (JWT, API keys)             |
+| `local.env` | Local Docker services                     |
+| `cloud.env` | Cloud services (Neon, Upstash, CloudAMQP) |
+
+---
+
+# 🧪 TESTING
+
+## 11. Test Suite (`apps/api/test/`)
+
+| Type                 | Files | Location                                     |
+| -------------------- | ----- | -------------------------------------------- |
+| **E2E**              | 2     | `test/auth.e2e-spec.ts`, `test/setup-e2e.ts` |
+| **Functional**       | 1     | `test/functional/medications.e2e-spec.ts`    |
+| **Security**         | 1     | `test/security/security.e2e-spec.ts`         |
+| **Load (K6)**        | 1     | `test/load-testing/k6-load-test.js`          |
+| **Load (Artillery)** | 1     | `test/load-testing/artillery-load-test.yml`  |
+| **Test Data**        | 1     | `test/load-testing/test-data.csv`            |
+| **Config**           | 1     | `test/jest-e2e.json`                         |
+
+### Load Testing Scenarios
+
+| Scenario | VUs   | Duration |
+| -------- | ----- | -------- |
+| Smoke    | 1     | 1 min    |
+| Load     | 0→100 | 20 min   |
+| Stress   | 0→300 | 14 min   |
+| Spike    | 500   | 1.5 min  |
+
+**Thresholds:** p95 < 500ms, p99 < 1s, errors < 1%
+
+---
+
+# 📚 DOCUMENTATION (`docs/`)
+
+## 12. Documentation Structure
+
+### Handbooks
+
+| File                                    | Purpose                                 |
+| --------------------------------------- | --------------------------------------- |
+| `CARECIRCLE_HANDBOOK-1.md`              | Overview, architecture, domain model    |
+| `CARECIRCLE_HANDBOOK-2.md`              | Implementation, bugs, technical details |
+| `PRODUCTION_INFRASTRUCTURE_COMPLETE.md` | This document                           |
+
+### Getting Started
+
+| File                                     | Purpose             |
+| ---------------------------------------- | ------------------- |
+| `getting-started/QUICK_START.md`         | 5-minute setup      |
+| `getting-started/SETUP.md`               | Detailed setup      |
+| `getting-started/FREE_SERVICES_SETUP.md` | Cloud service setup |
+
+### Guides
+
+| File                          | Purpose                |
+| ----------------------------- | ---------------------- |
+| `guides/AUTHENTICATION.md`    | Auth system deep dive  |
+| `guides/DOCKER_DEPLOYMENT.md` | Docker deployment      |
+| `guides/PROJECT_OVERVIEW.md`  | Complete project guide |
+| `guides/QA_TEST_REPORT.md`    | QA results             |
+
+### Deployment
+
+| File                                         | Purpose              |
+| -------------------------------------------- | -------------------- |
+| `deployment/PRODUCTION_DEPLOYMENT_GUIDE.md`  | Production setup     |
+| `deployment/FREE_DEPLOYMENT_GUIDE.md`        | Free tier deployment |
+| `deployment/ORACLE_CLOUD_FREE_TIER_GUIDE.md` | Oracle Cloud guide   |
+| `deployment/DEPLOYMENT_CHECKLIST.md`         | DevOps checklist     |
+
+### Architecture
+
+| File                                    | Purpose            |
+| --------------------------------------- | ------------------ |
+| `architecture/EVENT_DRIVEN.md`          | Event architecture |
+| `architecture/OVERVIEW.md`              | System overview    |
+| `architecture/API_ARCHITECTURE.md`      | Backend deep dive  |
+| `architecture/FRONTEND_ARCHITECTURE.md` | Frontend deep dive |
+
+### Features & Testing
+
+| File                                           | Purpose              |
+| ---------------------------------------------- | -------------------- |
+| `features/COMPLETE_FEATURES_IMPLEMENTATION.md` | Implementation guide |
+| `testing/TESTING.md`                           | Testing strategies   |
+
+### Engineering Mastery (14 Learning Guides)
+
+| File                         | Topic                |
+| ---------------------------- | -------------------- |
+| `01-fundamentals.md`         | CS Fundamentals      |
+| `02-system-design.md`        | System Design        |
+| `03-database-engineering.md` | Database Engineering |
+| `04-caching-strategies.md`   | Caching              |
+| `05-message-queues.md`       | Message Queues       |
+| `06-distributed-systems.md`  | Distributed Systems  |
+| `07-networking-deep-dive.md` | Networking           |
+| `08-security-engineering.md` | Security             |
+| `09-observability.md`        | Observability        |
+| `10-devops-sre.md`           | DevOps & SRE         |
+| `11-performance.md`          | Performance          |
+| `12-cloud-architecture.md`   | Cloud Architecture   |
+| `13-ai-ml-production.md`     | AI/ML Production     |
+| `14-career-path.md`          | Career Path          |
+
+---
+
+# 📦 PACKAGES
+
+## 13. Shared Database (`packages/database/`)
+
+| File                   | Purpose                      |
+| ---------------------- | ---------------------------- |
+| `prisma/schema.prisma` | Prisma schema (shared types) |
+| `src/index.ts`         | Prisma client export         |
+
+---
+
+# 🔧 ROOT CONFIG FILES
+
+| File                    | Purpose                             |
+| ----------------------- | ----------------------------------- |
+| `package.json`          | Root package with workspace scripts |
+| `pnpm-workspace.yaml`   | Workspace configuration             |
+| `turbo.json`            | Turborepo build pipelines           |
+| `rabbitmq-plugins.conf` | RabbitMQ plugin configuration       |
+
+---
+
+# 🏗️ ARCHITECTURE DIAGRAMS
+
+## System Architecture
+
+```
+                        ┌─────────────────────────────────────┐
+                        │     EXTERNAL SERVICES (Cloud)       │
+                        ├─────────────────────────────────────┤
+                        │ • Neon (PostgreSQL)                 │
+                        │ • Upstash (Redis)                   │
+                        │ • CloudAMQP (RabbitMQ)              │
+                        │ • AWS S3 / Cloudinary (Storage)     │
+                        │ • Stream Chat (Messaging)           │
+                        │ • Resend/Brevo (Email)              │
+                        │ • Sentry (Error Tracking)           │
+                        │ • PostHog (Analytics)               │
+                        └──────────────┬──────────────────────┘
+                                       │
+                        ┌──────────────▼──────────────────┐
+                        │     NGINX (Reverse Proxy)       │
+                        │  • Load balancer (least-conn)   │
+                        │  • Rate limiting (100r/s)       │
+                        │  • Gzip/Brotli compression      │
+                        │  • SSL/TLS termination          │
+                        │  • WebSocket upgrade handling   │
+                        └──────────────┬──────────────────┘
+                                       │
+          ┌────────────────────────────┼────────────────────────────┐
+          │                            │                            │
+  ┌───────▼────────┐          ┌───────▼────────┐          ┌────────▼────────┐
+  │   NEXT.JS WEB  │          │   NESTJS API   │          │     WORKERS     │
+  │   (Port 3000)  │          │   (Port 3001)  │          │   (Background)  │
+  ├────────────────┤          ├────────────────┤          ├─────────────────┤
+  │ • App Router   │          │ • 15+ Modules  │          │ • 4 Workers     │
+  │ • 25+ Pages    │          │ • 60+ Endpoints│          │ • Cron Jobs     │
+  │ • 50+ Comps    │◄────────►│ • WebSockets   │◄────────►│ • Event Consume │
+  │ • 12+ Hooks    │          │ • 6+ Guards    │          │ • Email Queue   │
+  │ • PWA/Offline  │          │ • TypeORM      │          │                 │
+  │ • i18n         │          │ • i18n (en/fr) │          │                 │
+  └────────────────┘          └────────────────┘          └─────────────────┘
+          │                            │                            │
+          └────────────────────────────┼────────────────────────────┘
+                                       │
+                    ┌──────────────────┼──────────────────┐
+                    │                  │                  │
+            ┌───────▼───────┐  ┌───────▼───────┐  ┌───────▼───────┐
+            │  PostgreSQL   │  │     Redis     │  │   RabbitMQ    │
+            │ (19+ tables)  │  │  (Sessions)   │  │  (Events)     │
+            └───────────────┘  └───────────────┘  └───────────────┘
+```
+
+---
+
+# 📊 COMPLETE FILE COUNT
+
+| Category            | Files           |
+| ------------------- | --------------- |
+| **API Source**      | ~200            |
+| **Web Source**      | ~118            |
+| **Workers Source**  | ~8              |
+| **Pixel Perfect**   | ~92             |
+| **Config Files**    | ~30             |
+| **Documentation**   | ~30             |
+| **K8s Manifests**   | 6               |
+| **Test Files**      | 9               |
+| **Total Estimated** | **~500+ files** |
+
+---
+
+# 🚀 TECHNOLOGY STACK
+
+## Frontend
+
+| Tech        | Version | Purpose               |
+| ----------- | ------- | --------------------- |
+| Next.js     | 14      | React framework       |
+| React       | 18      | UI library            |
+| TypeScript  | 5.x     | Type safety           |
+| TailwindCSS | 3.x     | Styling               |
+| Radix UI    | -       | Accessible components |
+| Zustand     | -       | State management      |
+| React Query | 5.x     | Server state          |
+| Socket.io   | -       | Real-time             |
+| Stream Chat | -       | Chat SDK              |
+
+## Backend
+
+| Tech       | Version | Purpose            |
+| ---------- | ------- | ------------------ |
+| NestJS     | 10.x    | Framework          |
+| TypeORM    | -       | Database ORM       |
+| PostgreSQL | 16      | Database           |
+| Redis      | 7       | Cache              |
+| RabbitMQ   | 3.12    | Message queue      |
+| BullMQ     | -       | Job queue          |
+| Passport   | -       | Authentication     |
+| Socket.io  | -       | WebSocket          |
+| web-push   | -       | Push notifications |
+
+## Infrastructure
+
+| Tech           | Purpose         |
+| -------------- | --------------- |
+| Docker         | Containers      |
+| Kubernetes     | Orchestration   |
+| Nginx          | Reverse proxy   |
+| GitHub Actions | CI/CD           |
+| pnpm           | Package manager |
+| Turborepo      | Build system    |
+
+## Cloud Services
+
+| Service   | Provider      | Purpose             |
+| --------- | ------------- | ------------------- |
+| Database  | Neon          | Managed PostgreSQL  |
+| Cache     | Upstash       | Managed Redis       |
+| Queue     | CloudAMQP     | Managed RabbitMQ    |
+| Storage   | S3/Cloudinary | File storage        |
+| Email     | Resend/Brevo  | Transactional email |
+| Chat      | Stream        | Real-time chat      |
+| Errors    | Sentry        | Error tracking      |
+| Analytics | PostHog       | Product analytics   |
+
+---
+
+# ✅ SUMMARY
+
+**CareCircle is a production-grade, enterprise-ready platform with:**
+
+- ✅ **4 Applications** (API, Web, Workers, Pixel-Perfect)
+- ✅ **15+ Backend Modules** with full CRUD
+- ✅ **25+ Frontend Pages** with marketing site
+- ✅ **50+ React Components** with design system
+- ✅ **12+ Custom Hooks** for reusable logic
+- ✅ **6 React Providers** for context
+- ✅ **8 Auth Guards** for security
+- ✅ **6 Custom Decorators** for DX
+- ✅ **6 System Helpers** for utilities
+- ✅ **3 Custom Validators** for validation
+- ✅ **4 Background Workers** for async jobs
+- ✅ **2 Languages** (English, French)
+- ✅ **4 Test Types** (E2E, Functional, Security, Load)
+- ✅ **14 Engineering Guides** for learning
+- ✅ **Full Docker + K8s** deployment
+- ✅ **Complete CI/CD** pipeline
+- ✅ **PWA** with offline support
+- ✅ **Real-time** WebSocket + Chat
+- ✅ **Push Notifications** (VAPID)
+
+---
+
+_Last Updated: January 15, 2026_  
+_CareCircle: Caregiving, coordinated. 🏡_
+
+🎯 COMPREHENSIVE FEATURE AUDIT - CareCircle
+1. 🐳 Infrastructure - Docker
+Feature	Location	Details
+Multi-stage Dockerfiles	apps/api/Dockerfile, apps/web/Dockerfile, apps/workers/Dockerfile	Builder → Runner pattern, non-root user (nestjs:nodejs)
+Docker Compose (Dev)	docker-compose.yml	PostgreSQL 16, Redis 7, RabbitMQ 3.12 with MQTT
+Docker Compose (Prod)	docker-compose.prod.yml	Nginx orchestration, network isolation, restart policies
+Health Checks	All containers	pg_isready, redis-cli ping, rabbitmq-diagnostics
+Named Volumes	Both compose files	Persistent data: postgres, redis, rabbitmq, nginx-cache
+2. 🌐 Nginx - Reverse Proxy
+Feature	Location	Details
+HTTP/2	nginx/conf.d/carecircle.conf:21	listen 443 ssl http2
+Load Balancing	nginx/nginx.conf:68-90	least_conn algorithm, keepalive connections
+Gzip Compression	nginx/nginx.conf:47-55	Level 6, extensive MIME types
+Rate Limiting	nginx/nginx.conf:63-65	api_limit: 100r/m, login_limit: 5r/m
+SSL/TLS	nginx/nginx.conf:93-99	TLS 1.2/1.3, ECDHE ciphers, OCSP stapling
+Security Headers	nginx/nginx.conf:102-106	HSTS, X-Frame-Options, X-Content-Type, XSS Protection
+WebSocket Upgrade	nginx/conf.d/carecircle.conf:88-102	Proxy headers, 7-day timeout
+Static Caching	nginx/conf.d/carecircle.conf:104-136	1 year (immutable), gzip_static
+Proxy Cache	nginx.conf:83-84	api_cache:10m, static_cache:100m with stale fallback
+3. ☸️ Kubernetes
+Feature	Location	Details
+Deployments	k8s/api-deployment.yaml, k8s/web-deployment.yaml, k8s/workers-deployment.yaml	API, Web, Workers
+HPA (Auto-scaling)	All deployment files	CPU 70%, Memory 80%, min 2 → max 6-20 replicas
+Health Probes	All deployments	Liveness (30s), Readiness (10s) on /health
+Resource Limits	All deployments	Requests/Limits for CPU/Memory
+Security Context	All deployments	runAsNonRoot, runAsUser: 1001, readOnlyRootFilesystem
+Pod Anti-Affinity	All deployments	Spread across nodes via topologyKey: kubernetes.io/hostname
+Ingress	k8s/ingress.yaml	Nginx ingress, cert-manager, rate limiting annotations
+ConfigMap/Secrets	k8s/config.yaml	External secrets management pattern
+Namespace	k8s/namespace.yaml	carecircle namespace isolation
+4. 🔄 CI/CD - GitHub Actions
+Feature	Location	Details
+CI Pipeline	.github/workflows/ci.yml	Lint → Type-check → Test → Build → Docker
+Matrix Testing	ci.yml:50-73	PostgreSQL 16 + Redis 7 service containers
+Docker Build	ci.yml:149-199	Multi-image build, GHCR push, GHA cache
+Production Deploy	.github/workflows/deploy-production.yml	Semantic versioning triggers (v*.*.*)
+Multi-arch Builds	deploy-production.yml:68-86	linux/amd64, linux/arm64
+K8s Rolling Deploy	deploy-production.yml:88-113	kubectl rollout with 300s timeout
+Auto Rollback	deploy-production.yml:145-164	rollback job on failure
+Slack Notifications	deploy-production.yml:137-143	Deployment status alerts
+Staging Deploy	.github/workflows/deploy-staging.yml	Separate staging workflow
+5. 📜 Scripts & Automation
+Script	Location	Details
+Dev Server	scripts/dev.js	Colorized multi-service output, turbo integration
+Deploy Prod (Bash)	scripts/deploy-prod.sh	Build/Up/Down/Logs/Clean commands
+Deploy Prod (PowerShell)	scripts/deploy-prod.ps1	Windows equivalent
+Use Cloud	scripts/use-cloud.ps1	Switches to Neon/Upstash/CloudAMQP
+Use Local	scripts/use-local.ps1	Switches to Docker services
+6. 🗄️ Database - PostgreSQL + TypeORM
+Feature	Location	Details
+TypeORM Config	apps/api/src/database/typeorm-config.service.ts	Dynamic config from env
+Connection Pooling	TypeORM config	max: 100, idleTimeoutMillis: 30000
+Statement Timeout	TypeORM config	statement_timeout: 30000 (30s)
+Slow Query Logging	TypeORM config	maxQueryExecutionTime: 1000
+Migrations	apps/api/src/database/migrations/	3 migrations (Initial, EventOutbox, Remaining)
+Run Migrations Script	apps/api/run-migrations.js	Custom migration runner
+SSL Support	Database config	ssl: { rejectUnauthorized: false } for cloud
+Prisma (Workers)	packages/database/prisma/schema.prisma	20+ models, enums, indexes
+7. ⚡ Caching - Redis
+Feature	Location	Details
+ioredis Client	apps/api/package.json	v5.3.2
+Upstash Support	env/cloud.env, config	REST API + standard Redis
+Local/Cloud Toggle	apps/api/src/config/index.ts:67-87	TLS, password optional
+Session Storage	Auth service	Refresh token sessions
+Queue Persistence	BullMQ	Redis-backed job queues
+AOF Persistence	docker-compose.yml:22	redis-server --appendonly yes
+8. 📬 Message Queue - RabbitMQ + BullMQ
+Feature	Location	Details
+RabbitMQ Module	apps/api/src/events/events.module.ts	@golevelup/nestjs-rabbitmq
+4 Exchanges	Events module	domain-events, notifications, dead-letter, audit
+6 Queues	Events module	WebSocket, Push, Email, Audit, 2 DLQs
+Dead Letter Queue	Events module	Automatic failed message routing
+Event Outbox Pattern	apps/api/src/events/outbox/	At-least-once delivery guarantee
+BullMQ Workers	apps/workers/src/workers/	4 workers (medication, appointment, shift, notification)
+Concurrency	Workers	concurrency: 10
+CloudAMQP Support	env/cloud.env	TLS connection via amqps://
+MQTT Protocol	docker-compose.yml:36	Port 1883 enabled via RabbitMQ
+9. 🔒 Security
+Feature	Location	Details
+JWT Auth	apps/api/src/auth/	Access (15m) + Refresh (7d/30d) tokens
+Token Rotation	Auth service	New refresh token on each refresh
+Argon2 Hashing	apps/api/package.json	Password hashing
+Account Lockout	Auth service	5 attempts → 30min lockout
+Helmet.js	apps/api/src/main.ts:31	Security headers
+CORS	apps/api/src/main.ts:54-64	Configurable origins, credentials
+Cookie Parser	apps/api/src/main.ts:32	Secure cookie handling
+Rate Limiting	App module	3/1s, 20/10s, 100/60s (ThrottlerModule)
+Encryption	Config	ENCRYPTION_KEY for sensitive data
+OTP	apps/api/src/system/helper/otp.helper.ts	Time-based one-time passwords
+Password Reset Tokens	Auth service	SHA256 hashed, 1-hour expiry
+10. 🛡️ Guards (6+)
+Guard	Location	Details
+JwtAuthGuard	apps/api/src/system/guard/jwt-auth.guard.ts	Passport JWT validation
+CustomThrottlerGuard	apps/api/src/system/guard/throttle.guard.ts	Rate limiting
+IpGuard	apps/api/src/system/guard/ip.guard.ts	IP whitelist/blacklist
+LanguageGuard	apps/api/src/system/guard/language.guard.ts	i18n language detection
+RolesGuard	apps/api/src/system/guard/roles.guard.ts	RBAC (ADMIN, CAREGIVER, VIEWER)
+FamilyAccessGuard	apps/api/src/system/guard/family-access.guard.ts	Family membership validation
+PermissionsGuard	apps/api/src/system/guard/permissions.guard.ts	Fine-grained permissions
+11. 📝 Interceptors
+Interceptor	Location	Details
+LoggingInterceptor	apps/api/src/system/interceptor/logging.interceptor.ts	Request/response timing, sanitized logging
+AuditInterceptor	apps/api/src/system/interceptor/audit.interceptor.ts	CRUD action logging
+TransactionInterceptor	apps/api/src/system/interceptor/transaction.interceptor.ts	DB transaction wrapping
+12. 🌐 Real-Time - WebSockets
+Feature	Location	Details
+Socket.io Gateway	apps/api/src/gateway/carecircle.gateway.ts	/carecircle namespace
+20+ Event Types	Gateway	Emergency, medication, appointment, timeline, shift
+Family Rooms	Gateway	join_family, leave_family
+Event Emitter Integration	Gateway	@OnEvent decorators
+RabbitMQ → WebSocket	websocket.consumer.ts	Broadcast events from queue
+Client Singleton	apps/web/src/lib/websocket.ts	Auto-reconnect (5 attempts)
+13. 💬 Stream Chat Integration
+Feature	Location	Details
+Stream Chat SDK	apps/web/src/lib/stream-chat.ts	Family messaging
+Family Channels	Stream chat	family-${familyId}
+Direct Messages	Stream chat	User-to-user channels
+Care Topic Channels	Stream chat	Medication/appointment discussions
+Backend Token Gen	Chat module	stream-chat Node.js SDK
+14. 📁 Multi-Provider Storage
+Provider	Location	Details
+Cloudinary	apps/api/src/system/module/storage/providers/cloudinary.service.ts	Default, image optimization
+AWS S3	apps/api/src/system/module/storage/providers/s3.service.ts	Presigned URLs
+MinIO	Config	S3-compatible local storage
+Uploadthing	Config	Alternative provider
+Provider Switching	STORAGE_PROVIDER env	No code changes needed
+15. 📧 Email Services
+Provider	Location	Details
+Mailtrap	Mail config	Dev/testing sandbox
+Resend	Mail config	Production transactional
+Brevo	Mail config	High-volume option
+SMTP Generic	Mail config	Custom SMTP support
+Nodemailer	apps/api/package.json	Transport layer
+16. 🔔 Push Notifications
+Feature	Location	Details
+Web Push (VAPID)	apps/web/src/lib/push-notifications.ts	Browser notifications
+Firebase Admin	apps/workers/package.json	Mobile push support
+Notification Workers	apps/workers/src/workers/notification.worker.ts	Background delivery
+Service Worker	apps/web/public/sw.js	Push event handling
+Action Buttons	Service worker	Given/Snooze for medications
+17. 📱 PWA & Offline Support
+Feature	Location	Details
+Service Worker	apps/web/public/sw.js	Cache-first static, network-first API
+Offline Storage	apps/web/src/lib/offline-storage.ts	IndexedDB via localforage
+Pending Actions Queue	Offline storage	Retry failed actions on reconnect
+Background Sync	Service worker	sync-offline-actions event
+Cache Versioning	Service worker	CACHE_NAME = 'carecircle-v1'
+Emergency Info Caching	Offline storage	Critical data always available
+18. 🚀 Performance - K6 Load Testing
+Scenario	Location	Details
+Smoke Test	apps/api/test/load-testing/k6-load-test.js	1 VU, 1 minute
+Load Test	K6 script	0→50→100→0 VUs, 9 minutes
+Stress Test	K6 script	0→100→200→300→0 VUs
+Spike Test	K6 script	0→500 VUs spike
+Custom Metrics	K6 script	login_duration, api_calls, errors
+Thresholds	K6 script	p95<500ms, p99<1s, errors<1%
+HTML Report	K6 script	Custom report generator
+19. 📊 Monitoring & Observability
+Feature	Location	Details
+NestJS Logger	Main.ts	5 levels (error, warn, log, debug, verbose)
+Sentry	Config	Error tracking DSN
+PostHog	Config	Product analytics
+Google Analytics	Config	Page analytics
+Mixpanel	Config	Event tracking
+Audit Logging	Audit interceptor	Who/what/when for HIPAA
+Nginx Performance Log	nginx/nginx.conf:24-28	upstream_response_time
+20. 📚 API Documentation - Swagger
+Feature	Location	Details
+OpenAPI 3.0	apps/api/src/swagger.ts	/api endpoint
+Bearer Auth	Swagger config	JWT-auth scheme
+Tag Organization	Swagger config	auth, users, families, care-recipients
+Rate Limit Docs	Swagger description	Public/authenticated limits
+i18n Headers	Swagger description	X-Language header
+21. 🌍 Internationalization (i18n)
+Feature	Location	Details
+nestjs-i18n	App module	Multi-language support
+Languages	apps/api/src/i18n/	en, fr JSON files
+Resolvers	App module	Header, Query, Accept-Language
+Validation Pipe	Main.ts	I18nValidationPipe
+22. 🏗️ Advanced Architecture Patterns
+Pattern	Location	Details
+Repository Pattern	All modules	*.repository.ts files
+Event-Driven Architecture	Events module	RabbitMQ publishers/consumers
+Outbox Pattern	apps/api/src/events/outbox/	Transactional event publishing
+CQRS-Ready	Event publisher	Separate publish methods per domain
+Module-based Architecture	App module	13+ feature modules
+Dependency Injection	Throughout	NestJS DI container
+23. 🌐 Environment Management
+Feature	Location	Details
+Base Config	env/base.env	Shared settings
+Cloud Config	env/cloud.env	Neon, Upstash, CloudAMQP
+Local Config	env/local.env	Docker services
+Profile Switching	PowerShell scripts	One-command environment swap
+12+ Service Configs	Config module	Database, Redis, RabbitMQ, Storage, Mail, etc.
+24. 🛠️ Developer Tools
+Tool	Location	Details
+Turbo	turbo.json	Monorepo task caching
+pnpm Workspaces	pnpm-workspace.yaml	Fast installs
+TypeScript Strict	All tsconfig.json	Strict mode enabled
+ESLint	All packages	Linting
+class-validator	API DTOs	Runtime validation
+Zod	Frontend	Schema validation
+class-transformer	API	Transform plain objects
+25. 📦 Frontend Advanced Features
+Feature	Location	Details
+Next.js 14 App Router	apps/web/	Server/Client components
+Route Groups	(auth), (app), (dashboard)	Layout composition
+Zustand	State management	Client state
+React Query	@tanstack/react-query	Server state, caching
+Custom Hooks	apps/web/src/hooks/	12 hooks (auth, family, websocket, etc.)
+Framer Motion	Package.json	Animations
+Radix UI	Package.json	Accessible components
+tailwindcss-animate	Package.json	CSS animations
+📋 Summary Statistics
+Category	Count
+Docker Files	5 (3 Dockerfiles + 2 Compose)
+Nginx Configs	3 files
+K8s Manifests	6 files
+CI/CD Workflows	3 workflows
+Scripts	5 automation scripts
+Environment Files	3 profiles (base, local, cloud)
+Guards	7 guards
+Interceptors	3 interceptors
+Workers	4 background workers
+Feature Modules	13+ NestJS modules
+Database Models	20+ Prisma models
+Frontend Hooks	12 custom hooks
